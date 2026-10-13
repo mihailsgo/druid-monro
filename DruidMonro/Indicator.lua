@@ -1,9 +1,11 @@
 local ADDON_NAME, ns = ...
 
+-- Moonfire proc detection and glow. There is no icon of its own: the glow is drawn on the
+-- Moonfire count icon (MoonfireCount.lua), which hosts it.
+
 local MOONFIRE_SPELL = 8921
 local MOONFIRE_SPELLS = { [8921] = true, [164812] = true }
 local GALACTIC_GUARDIAN_AURA = 213708 -- Guardian: next Moonfire is free and empowered
-local FALLBACK_ICON = "Interface\\Icons\\Spell_Nature_StarFall"
 local PROC_ATLAS = "UI-HUD-ActionBar-Proc-Loop-Flipbook"
 
 ns.GLOW_OPTIONS = {
@@ -15,7 +17,7 @@ ns.GLOW_OPTIONS = {
 
 local PIXEL_DOTS = 16
 
-local frame, icon
+local frame -- the icon frame the glow is drawn on
 local pulseTex, pulseAnim
 local procTex, procAnim
 local dots = {}
@@ -40,9 +42,17 @@ local function CheckProc()
 	procActive = active
 end
 
+-- True while Moonfire is procced and the indicator is enabled (or the layout preview is on).
+function ns.IsProcShown()
+	if not ns.db.indicatorEnabled or not ns.IsDruid() then
+		return false
+	end
+	return procActive or ns.IsPreview()
+end
+
 local function PixelOnUpdate(_, elapsed)
 	pixelPhase = (pixelPhase + elapsed * 0.3) % 1
-	local s = ns.db.indicatorSize
+	local s = frame:GetWidth()
 	local perimeter = s * 4
 	for i, dot in ipairs(dots) do
 		local d = (((i - 1) / PIXEL_DOTS) + pixelPhase) % 1 * perimeter
@@ -86,19 +96,12 @@ local function StartGlow(kind)
 	end
 end
 
+-- Sizes and starts/stops the glow on the host icon. Called whenever the icon is refreshed.
 function ns.ApplyIndicator()
 	if not frame then
 		return
 	end
-	local db = ns.db
-	local s = db.indicatorSize
-	frame:SetSize(s, s)
-	ns.PlaceFrame(frame, "indX", "indY")
-	frame:EnableMouse(ns.unlocked)
-
-	local tex = C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(MOONFIRE_SPELL)
-	icon:SetTexture(tex or FALLBACK_ICON)
-
+	local s = frame:GetWidth()
 	pulseTex:SetSize(s * 1.8, s * 1.8)
 	procTex:SetSize(s * 1.4, s * 1.4)
 	local t = math.max(2, math.floor(s * 0.06))
@@ -106,15 +109,15 @@ function ns.ApplyIndicator()
 		dot:SetSize(t, t)
 	end
 
-	local visible = ns.IsDruid() and db.indicatorEnabled and (procActive or ns.IsPreview())
-	frame:SetShown(visible and true or false)
-
 	-- Only restart the glow when it actually changes; UNIT_AURA calls this often.
 	local desired
-	if visible then
-		desired = db.glow
+	if frame:IsShown() and ns.IsProcShown() then
+		desired = ns.db.glow
 		if desired == "proc" and not HasProcAtlas() then
 			desired = "pulse" -- atlas missing on this client build
+		end
+		if desired == "none" then
+			desired = nil
 		end
 	end
 	if desired ~= activeGlow then
@@ -126,14 +129,8 @@ function ns.ApplyIndicator()
 	end
 end
 
-function ns.InitIndicator()
-	frame = CreateFrame("Frame", "DruidMonroIndicator", UIParent)
-	frame:SetFrameStrata("MEDIUM")
-	ns.MakeDraggable(frame, "indX", "indY")
-
-	icon = frame:CreateTexture(nil, "ARTWORK")
-	icon:SetAllPoints()
-	icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+function ns.InitIndicator(host)
+	frame = host
 
 	-- Pulse: pulsing additive action-button border.
 	pulseTex = frame:CreateTexture(nil, "OVERLAY")
@@ -188,7 +185,7 @@ function ns.InitIndicator()
 		else
 			CheckProc()
 		end
-		ns.ApplyIndicator()
+		ns.ApplyMoonfireCount()
 	end)
 
 	CheckProc()

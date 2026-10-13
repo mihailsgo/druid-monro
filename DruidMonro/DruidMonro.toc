@@ -10,5 +10,9 @@
 Core.lua
 Display.lua
 Indicator.lua
+MoonfireCount.lua
 Tracker.lua
+Rage.lua
+Absorb.lua
+Minimap.lua
 Config.lua

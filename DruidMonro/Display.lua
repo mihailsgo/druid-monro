@@ -75,21 +75,35 @@ local function ApplyText()
 	bg:SetShown(ns.unlocked)
 
 	local show
-	if ns.IsPreview() then
+	if not db.textEnabled then
+		show = false
+	elseif ns.IsPreview() then
 		show = true
 	else
-		show = ns.IsDruid() and not InBearForm() and strtrim(db.text) ~= ""
+		show = ns.IsDruid()
+				and (not db.textCombatOnly or UnitAffectingCombat("player"))
+				and not InBearForm()
+				and strtrim(db.text) ~= ""
 	end
 	frame:SetShown(show)
 end
 
 function ns.Apply()
 	ApplyText()
-	if ns.ApplyIndicator then
-		ns.ApplyIndicator()
+	if ns.ApplyMoonfireCount then
+		ns.ApplyMoonfireCount()
 	end
 	if ns.ApplyTrackers then
 		ns.ApplyTrackers()
+	end
+	if ns.ApplyRage then
+		ns.ApplyRage()
+	end
+	if ns.ApplyAbsorb then
+		ns.ApplyAbsorb()
+	end
+	if ns.ApplyMinimap then
+		ns.ApplyMinimap()
 	end
 end
 
@@ -120,13 +134,24 @@ function ns.InitDisplay()
 	events:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
 	events:RegisterEvent("UPDATE_SHAPESHIFT_FORMS")
 	events:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+	events:RegisterEvent("PLAYER_REGEN_DISABLED")
+	events:RegisterEvent("PLAYER_REGEN_ENABLED")
 	events:SetScript("OnEvent", ns.Apply)
 
-	if ns.InitIndicator then
-		ns.InitIndicator()
+	if ns.InitMoonfireCount then
+		ns.InitMoonfireCount()
 	end
 	if ns.InitTrackers then
 		ns.InitTrackers()
+	end
+	if ns.InitRage then
+		ns.InitRage()
+	end
+	if ns.InitAbsorb then
+		ns.InitAbsorb()
+	end
+	if ns.InitMinimap then
+		ns.InitMinimap()
 	end
 	ns.Apply()
 end

@@ -79,7 +79,7 @@ local function IsKnown(spellID)
 end
 
 local function ShouldShow(t)
-	if not t.enabled then
+	if not ns.db.trackersEnabled or not t.enabled then
 		return false
 	end
 	if ns.IsPreview() then

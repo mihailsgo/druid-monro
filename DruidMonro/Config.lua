@@ -1,6 +1,6 @@
 local ADDON_NAME, ns = ...
 
-local panel, trackerPanel, category
+local panel, category
 local widgets = {} -- main panel widgets with a Refresh method
 local trackerWidgets = {} -- tracker editor widgets with a Refresh method
 local openCount = 0
@@ -201,30 +201,191 @@ local function TrackConfigVisibility(p)
 	end)
 end
 
-local function UnlockButton(parent, x, y)
-	local unlock = ActionButton(parent, "", 140, function()
-		ns.SetUnlocked(not ns.unlocked)
-	end)
-	unlock:SetPoint("TOPLEFT", x, y)
-	unlock.Refresh = function(self)
-		self:SetText(ns.unlocked and "Lock" or "Unlock to move")
+-- Panels and pages -----------------------------------------------------------
+
+local NAV_WIDTH = 150
+local DIM_ALPHA = 0.45
+
+local navItems = {} -- sidebar entries, each with a Refresh method
+
+local function RefreshNav()
+	for _, item in ipairs(navItems) do
+		item:Refresh()
 	end
-	return unlock
 end
 
--- Main panel -----------------------------------------------------------------
+local function Border(f, r, g, b, a)
+	local function edge(p1, p2, w, h)
+		local t = f:CreateTexture(nil, "BORDER")
+		t:SetColorTexture(r, g, b, a)
+		t:SetPoint(p1)
+		t:SetPoint(p2)
+		if w then
+			t:SetWidth(w)
+		end
+		if h then
+			t:SetHeight(h)
+		end
+	end
+	edge("TOPLEFT", "TOPRIGHT", nil, 1)
+	edge("BOTTOMLEFT", "BOTTOMRIGHT", nil, 1)
+	edge("TOPLEFT", "BOTTOMLEFT", 1, nil)
+	edge("TOPRIGHT", "BOTTOMRIGHT", 1, nil)
+end
 
-local function BuildMainPanel()
-	panel = CreateFrame("Frame")
-	panel.name = "DruidMonro"
+-- A titled box that groups related controls; put them in `panel.content`.
+-- With `get`/`set` the title becomes a checkbox (`panel.toggle`) that switches the whole feature on
+-- or off and dims the controls while it is off.
+local function Panel(parent, title, get, set)
+	local p = CreateFrame("Frame", nil, parent)
+	local bg = p:CreateTexture(nil, "BACKGROUND")
+	bg:SetAllPoints()
+	bg:SetColorTexture(0, 0, 0, 0.3)
+	Border(p, 1, 1, 1, 0.12)
 
-	Label(panel, "DruidMonro", 16, -16, "GameFontNormalHuge")
+	local divider = p:CreateTexture(nil, "ARTWORK")
+	divider:SetPoint("TOPLEFT", 8, -38)
+	divider:SetPoint("TOPRIGHT", -8, -38)
+	divider:SetHeight(1)
+	divider:SetColorTexture(1, 1, 1, 0.12)
 
-	-- Feature 1: not-in-bear-form text
-	Label(panel, "Not in Bear Form text", 16, -56, "GameFontNormalLarge")
+	p.content = CreateFrame("Frame", nil, p)
+	p.content:SetPoint("TOPLEFT", 12, -50)
+	p.content:SetPoint("BOTTOMRIGHT", -12, 12)
 
-	Label(panel, "Text", 16, -88)
-	widgets.edit = TextBox(panel, 24, -106, 300, 80, nil, function(text)
+	if get then
+		local function dim(on)
+			p.content:SetAlpha(on and 1 or DIM_ALPHA)
+		end
+		local toggle = Checkbox(p, title, 6, -4, get, function(v)
+			set(v)
+			dim(v)
+			RefreshNav()
+		end)
+		toggle.Text:SetFontObject("GameFontNormalLarge")
+		local refresh = toggle.Refresh
+		toggle.Refresh = function(self)
+			refresh(self)
+			dim(get())
+		end
+		p.toggle = toggle
+	else
+		Label(p, title, 12, -12, "GameFontNormalLarge")
+	end
+	return p
+end
+
+local content -- right-hand area that holds the pages
+local pages = {}
+local currentPage = "general"
+
+-- A page fills the content area; panels are placed below its title and description.
+local function Page(key, title, description)
+	local f = CreateFrame("Frame", nil, content)
+	f:SetAllPoints()
+	f:Hide()
+	Label(f, title, 0, 0, "GameFontNormalHuge")
+	local d = Label(f, description, 0, -32, "GameFontHighlight")
+	d:SetPoint("TOPRIGHT", 0, -32)
+	d:SetJustifyH("LEFT")
+	pages[key] = f
+	return f
+end
+
+local function SelectPage(key)
+	currentPage = key
+	for k, page in pairs(pages) do
+		page:SetShown(k == key)
+	end
+	for _, item in ipairs(navItems) do
+		item.selectedTex:SetShown(item.key == key)
+	end
+end
+
+-- Sidebar entry; `isOn` (optional) drives the green/grey status dot for feature pages.
+local function NavItem(parent, key, label, y, isOn)
+	local b = CreateFrame("Button", nil, parent)
+	b:SetSize(NAV_WIDTH, 28)
+	b:SetPoint("TOPLEFT", 0, y)
+	b.key = key
+	b.selectedTex = b:CreateTexture(nil, "BACKGROUND")
+	b.selectedTex:SetAllPoints()
+	b.selectedTex:SetColorTexture(1, 0.82, 0, 0.2)
+	b.selectedTex:Hide()
+	local hover = b:CreateTexture(nil, "HIGHLIGHT")
+	hover:SetAllPoints()
+	hover:SetColorTexture(1, 1, 1, 0.08)
+	b.dot = b:CreateTexture(nil, "ARTWORK")
+	b.dot:SetSize(8, 8)
+	b.dot:SetPoint("LEFT", 8, 0)
+	local text = b:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	text:SetPoint("LEFT", 24, 0)
+	text:SetText(label)
+	b:SetScript("OnClick", function()
+		SelectPage(key)
+	end)
+	b.Refresh = function(self)
+		if isOn then
+			local on = isOn()
+			self.dot:SetColorTexture(on and 0.2 or 0.4, on and 0.9 or 0.4, on and 0.4 or 0.4, 1)
+			self.dot:Show()
+		else
+			self.dot:Hide()
+		end
+	end
+	navItems[#navItems + 1] = b
+	return b
+end
+
+-- Pages ----------------------------------------------------------------------
+
+local PAGE_TOP = -72
+
+local function BuildGeneralPage()
+	local page = Page("general", "General", "Settings that are not tied to a single feature.")
+
+	local ui = Panel(page, "Interface")
+	ui:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	ui:SetPoint("TOPRIGHT", 0, PAGE_TOP)
+	ui:SetHeight(100)
+	widgets.minimap = Checkbox(ui.content, "Show minimap button", 0, 0, function()
+		return not ns.db.minimap.hide
+	end, function(v)
+		ns.db.minimap.hide = not v
+	end)
+
+	local cmds = Panel(page, "Slash commands")
+	cmds:SetPoint("TOPLEFT", ui, "BOTTOMLEFT", 0, -12)
+	cmds:SetPoint("TOPRIGHT", ui, "BOTTOMRIGHT", 0, -12)
+	cmds:SetHeight(150)
+	local list = cmds.content:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	list:SetPoint("TOPLEFT")
+	list:SetPoint("TOPRIGHT")
+	list:SetJustifyH("LEFT")
+	list:SetSpacing(4)
+	list:SetText(
+		"|cff33ff99/druidm|r  open these settings\n"
+			.. "|cff33ff99/druidm unlock|r  show and drag every element (run again to lock)\n"
+			.. "|cff33ff99/druidm minimap|r  show or hide the minimap button\n"
+			.. "|cff33ff99/druidm reset|r  reset all settings and positions"
+	)
+end
+
+local function BuildBearPage()
+	local page = Page("bear", "Bear Form text", "Warns you while you are not in Bear Form.")
+	local p = Panel(page, "Show the text", function()
+		return ns.db.textEnabled
+	end, function(v)
+		ns.db.textEnabled = v
+	end)
+	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
+	p:SetHeight(290)
+	widgets.textEnabled = p.toggle
+	local c = p.content
+
+	Label(c, "Text", 0, 0)
+	widgets.edit = TextBox(c, 8, -18, 300, 80, nil, function(text)
 		ns.db.text = text
 		ns.Apply()
 	end)
@@ -233,71 +394,106 @@ local function BuildMainPanel()
 		self:SetCursorPosition(0)
 	end
 
-	Label(panel, "Font", 16, -144)
-	widgets.font = Dropdown(panel, 16, -162, 220, GetFonts, function(item)
+	Label(c, "Font", 0, -56)
+	widgets.font = Dropdown(c, 0, -74, 220, GetFonts, function(item)
 		return ns.db.fontPath == item.path
 	end, function(item)
 		ns.db.fontPath = item.path
 	end)
 
-	Label(panel, "Color", 270, -144)
-	widgets.color = ColorSwatch(panel, 270, -164, function()
+	Label(c, "Color", 250, -56)
+	widgets.color = ColorSwatch(c, 250, -76, function()
 		return ns.db.color
 	end)
 
-	widgets.size = Slider(panel, "Font size", 16, -204, 12, 96, 1, function()
+	widgets.size = Slider(c, "Font size", 0, -116, 12, 96, 1, function()
 		return ns.db.fontSize
 	end, function(v)
 		ns.db.fontSize = v
 	end)
 
-	widgets.outline = Checkbox(panel, "Outline", 300, -224, function()
+	widgets.outline = Checkbox(c, "Outline", 300, -136, function()
 		return ns.db.outline
 	end, function(v)
 		ns.db.outline = v
 	end)
 
-	-- Feature 2: Moonfire proc indicator
-	Label(panel, "Moonfire proc indicator", 16, -292, "GameFontNormalLarge")
+	widgets.textCombatOnly = Checkbox(c, "Only show in combat", 0, -176, function()
+		return ns.db.textCombatOnly
+	end, function(v)
+		ns.db.textCombatOnly = v
+	end)
+end
 
-	widgets.indEnabled = Checkbox(panel, "Show indicator when Moonfire procs", 16, -320, function()
+local function BuildIndicatorPage()
+	local page = Page(
+		"indicator",
+		"Moonfire proc indicator",
+		"Glows the Moonfire count icon when Moonfire procs. Size and position are set on the Moonfire count page."
+	)
+	local p = Panel(page, "Show the indicator", function()
 		return ns.db.indicatorEnabled
 	end, function(v)
 		ns.db.indicatorEnabled = v
 	end)
+	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
+	p:SetHeight(110)
+	widgets.indEnabled = p.toggle
+	local c = p.content
 
-	Label(panel, "Glow effect", 16, -358)
-	widgets.glow = Dropdown(panel, 16, -376, 220, function()
+	Label(c, "Glow effect", 0, 0)
+	widgets.glow = Dropdown(c, 0, -18, 220, function()
 		return ns.GLOW_OPTIONS
 	end, function(item)
 		return ns.db.glow == item.key
 	end, function(item)
 		ns.db.glow = item.key
 	end)
-
-	widgets.indSize = Slider(panel, "Indicator size", 16, -418, 24, 200, 1, function()
-		return ns.db.indicatorSize
-	end, function(v)
-		ns.db.indicatorSize = v
-	end)
-
-	-- Positioning
-	Label(panel, "Position", 16, -486, "GameFontNormalLarge")
-	Label(panel, "Unlock to show every element and drag it anywhere on screen.", 16, -512, "GameFontHighlight")
-
-	widgets.unlock = UnlockButton(panel, 16, -536)
-	local reset = ActionButton(panel, "Reset all", 140, function()
-		ns.ResetAll()
-	end)
-	reset:SetPoint("LEFT", widgets.unlock, "RIGHT", 10, 0)
-
-	TrackConfigVisibility(panel)
 end
 
--- Ability trackers panel -----------------------------------------------------
+-- Moonfire count page --------------------------------------------------------
+
+local function BuildMoonCountPage()
+	local page = Page(
+		"mooncount",
+		"Moonfire count",
+		"Shows on how many of the mobs you are fighting your Moonfire is active, e.g. 3/5. Counts mobs that have a nameplate."
+	)
+	local p = Panel(page, "Show the counter", function()
+		return ns.db.moonCountEnabled
+	end, function(v)
+		ns.db.moonCountEnabled = v
+	end)
+	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
+	p:SetHeight(230)
+	widgets.moonCountEnabled = p.toggle
+	local c = p.content
+
+	widgets.moonCountSize = Slider(c, "Icon size", 0, 0, 24, 200, 1, function()
+		return ns.db.moonCountSize
+	end, function(v)
+		ns.db.moonCountSize = v
+	end)
+
+	widgets.moonCountFontSize = Slider(c, "Font size", 0, -56, 8, 96, 1, function()
+		return ns.db.moonCountFontSize
+	end, function(v)
+		ns.db.moonCountFontSize = v
+	end)
+
+	Label(c, "Text color (turns green when every mob has Moonfire)", 0, -112)
+	widgets.moonCountColor = ColorSwatch(c, 0, -132, function()
+		return ns.db.moonCountColor
+	end)
+end
+
+-- Ability trackers page ------------------------------------------------------
 
 local selected = 1
 local listButtons = {}
+local addButton, editorPanel, emptyHint
 local EMPTY = {
 	enabled = true,
 	text = "",
@@ -325,26 +521,35 @@ local function UpdateListButtons()
 		local b = listButtons[i]
 		local t = trackers[i]
 		if t then
-			b:SetText(("%d. %s (%s)"):format(i, t.text ~= "" and t.text or "-", SpellLabel(t)))
+			b:SetText(("%d. %s"):format(i, SpellLabel(t)))
 			b:Show()
 			b.selectedTex:SetShown(i == selected)
 		else
 			b:Hide()
 		end
 	end
-	trackerWidgets.add:SetEnabled(#trackers < ns.MAX_TRACKERS)
+	addButton:SetEnabled(#trackers < ns.MAX_TRACKERS)
 end
 
-local function BuildTrackerPanel()
-	trackerPanel = CreateFrame("Frame")
-	trackerPanel.name = "Ability trackers"
-	local p = trackerPanel
+local function BuildTrackerPage()
+	local page = Page(
+		"trackers",
+		"Ability trackers",
+		"Show a text while an ability has no charge or is on cooldown, e.g. \"NO CHARGE\" or \"NO KICK\"."
+	)
 
-	Label(p, "Ability trackers", 16, -16, "GameFontNormalHuge")
-	Label(p, "Show a text while an ability has no charge or is on cooldown, e.g. \"NO CHARGE\" or \"NO KICK\".", 16, -48, "GameFontHighlight")
+	-- Left: tracker list
+	local list = Panel(page, "Trackers", function()
+		return ns.db.trackersEnabled
+	end, function(v)
+		ns.db.trackersEnabled = v
+	end)
+	list:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	list:SetPoint("BOTTOMLEFT", 0, 0)
+	list:SetWidth(190)
+	widgets.trackersEnabled = list.toggle
 
-	-- Left column: tracker list
-	trackerWidgets.add = ActionButton(p, "Add tracker", 200, function()
+	addButton = ActionButton(list.content, "Add tracker", 166, function()
 		local i = ns.NewTracker()
 		if i then
 			selected = i
@@ -352,12 +557,18 @@ local function BuildTrackerPanel()
 			ns.RefreshConfig()
 		end
 	end)
-	trackerWidgets.add:SetPoint("TOPLEFT", 16, -80)
+	addButton:SetPoint("TOPLEFT", 0, 0)
 
 	for i = 1, ns.MAX_TRACKERS do
-		local b = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
-		b:SetSize(200, 24)
-		b:SetPoint("TOPLEFT", 16, -112 - (i - 1) * 26)
+		local b = CreateFrame("Button", nil, list.content, "UIPanelButtonTemplate")
+		b:SetSize(166, 24)
+		b:SetPoint("TOPLEFT", 0, -34 - (i - 1) * 26)
+		local fs = b:GetFontString()
+		fs:SetWordWrap(false)
+		fs:SetJustifyH("LEFT")
+		fs:ClearAllPoints()
+		fs:SetPoint("LEFT", 10, 0)
+		fs:SetPoint("RIGHT", -10, 0)
 		b.selectedTex = b:CreateTexture(nil, "OVERLAY")
 		b.selectedTex:SetAllPoints()
 		b.selectedTex:SetColorTexture(1, 0.82, 0, 0.25)
@@ -368,18 +579,29 @@ local function BuildTrackerPanel()
 		listButtons[i] = b
 	end
 
-	-- Right column: editor for the selected tracker
-	local ed = CreateFrame("Frame", nil, p)
-	ed:SetPoint("TOPLEFT", 240, -80)
-	ed:SetPoint("BOTTOMRIGHT")
-	trackerWidgets.editor = ed
-	ed.Refresh = function(self)
-		self:SetShown(ns.db.trackers[selected] ~= nil)
-	end
+	-- Right: editor for the selected tracker
+	local ed = Panel(page, "Tracker settings", function()
+		return T().enabled
+	end, function(v)
+		if T() ~= EMPTY then
+			T().enabled = v
+		end
+	end)
+	ed:SetPoint("TOPLEFT", list, "TOPRIGHT", 12, 0)
+	ed:SetPoint("BOTTOMRIGHT", 0, 0)
+	editorPanel = ed
+	trackerWidgets.enabled = ed.toggle
+	local c = ed.content
 
-	Label(ed, "Ability (name or spell ID)", 0, 0)
-	local status = ed:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-	status:SetPoint("TOPLEFT", 0, -56)
+	emptyHint = Label(page, "Add a tracker to get started.", 0, 0, "GameFontHighlight")
+	emptyHint:ClearAllPoints()
+	emptyHint:SetPoint("CENTER", ed, "CENTER")
+
+	Label(c, "Ability (name or spell ID)", 0, 0)
+	local status = c:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	status:SetPoint("TOPLEFT", 0, -50)
+	status:SetPoint("TOPRIGHT", 0, -50)
+	status:SetJustifyH("LEFT")
 	local function ShowStatus()
 		local t = T()
 		if t.spellID then
@@ -389,7 +611,7 @@ local function BuildTrackerPanel()
 			status:SetText("|cffff5555No ability selected|r - type a spell you know and press Enter")
 		end
 	end
-	local ability = TextBox(ed, 8, -18, 280, 60, function(input)
+	local ability = TextBox(c, 8, -18, 250, 60, function(input)
 		local t = T()
 		if t == EMPTY then
 			return
@@ -415,51 +637,43 @@ local function BuildTrackerPanel()
 	end
 	trackerWidgets.ability = ability
 
-	Label(ed, "Text", 0, -88)
-	local text = TextBox(ed, 8, -106, 280, 80, nil, function(value)
+	Label(c, "Text", 0, -92)
+	trackerWidgets.text = TextBox(c, 8, -110, 250, 80, nil, function(value)
 		if T() ~= EMPTY then
 			T().text = value
 			ns.Apply()
-			UpdateListButtons()
 		end
 	end)
-	text.Refresh = function(self)
+	trackerWidgets.text.Refresh = function(self)
 		self:SetText(T().text)
 		self:SetCursorPosition(0)
 	end
-	trackerWidgets.text = text
 
-	Label(ed, "Font", 0, -144)
-	trackerWidgets.font = Dropdown(ed, 0, -162, 220, GetFonts, function(item)
+	Label(c, "Font", 0, -148)
+	trackerWidgets.font = Dropdown(c, 0, -166, 160, GetFonts, function(item)
 		return T().fontPath == item.path
 	end, function(item)
 		T().fontPath = item.path
 	end)
 
-	Label(ed, "Color", 250, -144)
-	trackerWidgets.color = ColorSwatch(ed, 250, -164, function()
+	Label(c, "Color", 190, -148)
+	trackerWidgets.color = ColorSwatch(c, 190, -168, function()
 		return T().color
 	end)
 
-	trackerWidgets.size = Slider(ed, "Font size", 0, -204, 12, 96, 1, function()
+	trackerWidgets.size = Slider(c, "Font size", 0, -208, 12, 96, 1, function()
 		return T().fontSize
 	end, function(v)
 		T().fontSize = v
 	end)
 
-	trackerWidgets.outline = Checkbox(ed, "Outline", 280, -224, function()
+	trackerWidgets.outline = Checkbox(c, "Outline", 0, -256, function()
 		return T().outline
 	end, function(v)
 		T().outline = v
 	end)
 
-	trackerWidgets.enabled = Checkbox(ed, "Enabled", 0, -262, function()
-		return T().enabled
-	end, function(v)
-		T().enabled = v
-	end)
-
-	local remove = ActionButton(ed, "Remove this tracker", 160, function()
+	local remove = ActionButton(c, "Remove this tracker", 160, function()
 		if ns.db.trackers[selected] then
 			table.remove(ns.db.trackers, selected)
 			selected = math.max(1, math.min(selected, #ns.db.trackers))
@@ -467,13 +681,163 @@ local function BuildTrackerPanel()
 			ns.RefreshConfig()
 		end
 	end)
-	remove:SetPoint("TOPLEFT", 0, -300)
+	remove:SetPoint("BOTTOMLEFT", 0, 0)
+end
 
-	Label(ed, "Position", 0, -350, "GameFontNormalLarge")
-	Label(ed, "Unlock to show every element and drag it anywhere on screen.", 0, -376, "GameFontHighlight")
-	trackerWidgets.unlock = UnlockButton(ed, 0, -400)
+-- Rage panel page ------------------------------------------------------------
 
-	TrackConfigVisibility(p)
+local function BuildRagePage()
+	local page = Page("rage", "Rage panel", "A bar showing your current rage while you are in Bear Form.")
+	local p = Panel(page, "Show the rage panel", function()
+		return ns.db.rageEnabled
+	end, function(v)
+		ns.db.rageEnabled = v
+	end)
+	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
+	p:SetHeight(320)
+	widgets.rageEnabled = p.toggle
+	local c = p.content
+
+	widgets.rageWidth = Slider(c, "Width", 0, 0, 50, 600, 1, function()
+		return ns.db.rageWidth
+	end, function(v)
+		ns.db.rageWidth = v
+	end)
+
+	widgets.rageHeight = Slider(c, "Height", 0, -56, 8, 100, 1, function()
+		return ns.db.rageHeight
+	end, function(v)
+		ns.db.rageHeight = v
+	end)
+
+	Label(c, "Color", 0, -112)
+	widgets.rageColor = ColorSwatch(c, 0, -132, function()
+		return ns.db.rageColor
+	end)
+
+	widgets.rageShowText = Checkbox(c, "Show rage number", 0, -170, function()
+		return ns.db.rageShowText
+	end, function(v)
+		ns.db.rageShowText = v
+	end)
+
+	widgets.rageCombatOnly = Checkbox(c, "Only show in combat", 0, -200, function()
+		return ns.db.rageCombatOnly
+	end, function(v)
+		ns.db.rageCombatOnly = v
+	end)
+
+	widgets.rageGlow = Checkbox(c, "Glow when rage is full", 0, -230, function()
+		return ns.db.rageGlow
+	end, function(v)
+		ns.db.rageGlow = v
+	end)
+end
+
+-- Absorb page ----------------------------------------------------------------
+
+local function BuildAbsorbPage()
+	local page = Page(
+		"absorb",
+		"Absorb shield",
+		"Shows a Power Word: Shield icon with your total absorb while Frenzied Regeneration is active. Absorbs from other sources are included in the number."
+	)
+	local p = Panel(page, "Show the absorb icon", function()
+		return ns.db.absorbEnabled
+	end, function(v)
+		ns.db.absorbEnabled = v
+	end)
+	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
+	p:SetHeight(230)
+	widgets.absorbEnabled = p.toggle
+	local c = p.content
+
+	widgets.absorbSize = Slider(c, "Icon size", 0, 0, 24, 200, 1, function()
+		return ns.db.absorbSize
+	end, function(v)
+		ns.db.absorbSize = v
+	end)
+
+	widgets.absorbFontSize = Slider(c, "Font size", 0, -56, 8, 96, 1, function()
+		return ns.db.absorbFontSize
+	end, function(v)
+		ns.db.absorbFontSize = v
+	end)
+
+	widgets.absorbAny = Checkbox(c, "Also show for absorbs from other sources", 0, -112, function()
+		return ns.db.absorbAny
+	end, function(v)
+		ns.db.absorbAny = v
+	end)
+end
+
+-- Main panel -----------------------------------------------------------------
+
+local function BuildMainPanel()
+	panel = CreateFrame("Frame")
+	panel.name = "DruidMonro"
+
+	-- Sidebar: feature navigation, with the always-needed positioning buttons at the bottom
+	local nav = CreateFrame("Frame", nil, panel)
+	nav:SetPoint("TOPLEFT", 16, -16)
+	nav:SetPoint("BOTTOMLEFT", 16, 16)
+	nav:SetWidth(NAV_WIDTH)
+	Label(nav, "DruidMonro", 0, 0, "GameFontNormalHuge")
+
+	NavItem(nav, "general", "General", -44)
+	NavItem(nav, "bear", "Bear Form text", -74, function()
+		return ns.db.textEnabled
+	end)
+	NavItem(nav, "indicator", "Moonfire indicator", -104, function()
+		return ns.db.indicatorEnabled
+	end)
+	NavItem(nav, "mooncount", "Moonfire count", -134, function()
+		return ns.db.moonCountEnabled
+	end)
+	NavItem(nav, "trackers", "Ability trackers", -164, function()
+		return ns.db.trackersEnabled
+	end)
+	NavItem(nav, "rage", "Rage panel", -194, function()
+		return ns.db.rageEnabled
+	end)
+	NavItem(nav, "absorb", "Absorb shield", -224, function()
+		return ns.db.absorbEnabled
+	end)
+
+	local reset = ActionButton(nav, "Reset all", NAV_WIDTH, function()
+		ns.ResetAll()
+	end)
+	reset:SetPoint("BOTTOMLEFT", 0, 0)
+	widgets.unlock = ActionButton(nav, "", NAV_WIDTH, function()
+		ns.SetUnlocked(not ns.unlocked)
+	end)
+	widgets.unlock:SetPoint("BOTTOMLEFT", reset, "TOPLEFT", 0, 6)
+	widgets.unlock.Refresh = function(self)
+		self:SetText(ns.unlocked and "Lock" or "Unlock to move")
+	end
+
+	local sep = panel:CreateTexture(nil, "ARTWORK")
+	sep:SetPoint("TOPLEFT", nav, "TOPRIGHT", 8, 0)
+	sep:SetPoint("BOTTOMLEFT", nav, "BOTTOMRIGHT", 8, 0)
+	sep:SetWidth(1)
+	sep:SetColorTexture(1, 1, 1, 0.12)
+
+	content = CreateFrame("Frame", nil, panel)
+	content:SetPoint("TOPLEFT", nav, "TOPRIGHT", 24, 0)
+	content:SetPoint("BOTTOMRIGHT", -16, 16)
+
+	BuildGeneralPage()
+	BuildBearPage()
+	BuildIndicatorPage()
+	BuildMoonCountPage()
+	BuildTrackerPage()
+	BuildRagePage()
+	BuildAbsorbPage()
+	SelectPage(currentPage)
+
+	TrackConfigVisibility(panel)
 end
 
 -- Public ---------------------------------------------------------------------
@@ -486,13 +850,14 @@ function ns.RefreshConfig()
 	for _, w in pairs(widgets) do
 		w:Refresh()
 	end
+	RefreshNav()
 	UpdateListButtons()
-	trackerWidgets.editor:Refresh()
-	if ns.db.trackers[selected] then
-		for key, w in pairs(trackerWidgets) do
-			if key ~= "add" and key ~= "editor" then
-				w:Refresh()
-			end
+	local hasTracker = ns.db.trackers[selected] ~= nil
+	editorPanel:SetShown(hasTracker)
+	emptyHint:SetShown(not hasTracker)
+	if hasTracker then
+		for _, w in pairs(trackerWidgets) do
+			w:Refresh()
 		end
 	end
 end
@@ -505,8 +870,6 @@ end
 
 function ns.InitConfig()
 	BuildMainPanel()
-	BuildTrackerPanel()
 	category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
 	Settings.RegisterAddOnCategory(category)
-	Settings.RegisterCanvasLayoutSubcategory(category, trackerPanel, trackerPanel.name)
 end
