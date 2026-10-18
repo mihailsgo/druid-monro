@@ -183,6 +183,31 @@ local APEX_DEBOUNCE = 1 -- the summon cast and the buff arrive together; speak o
 local apexActive = false
 local apexSpokenAt = 0
 
+-- Both spells are named "Answered Calling"; matching by name too survives the IDs changing between patches.
+local function ApexName()
+	return C_Spell.GetSpellName(ANSWERED_CALLING_BUFF) or "Answered Calling"
+end
+
+local function IsApexSpell(spellID)
+	if spellID == ANSWERED_CALLING_SUMMON or spellID == ANSWERED_CALLING_BUFF then
+		return true
+	end
+	local name = C_Spell.GetSpellName(spellID)
+	return name ~= nil and not IsSecret(name) and name == ApexName()
+end
+
+local function HasApexBuff()
+	local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, ANSWERED_CALLING_BUFF)
+	if ok and aura ~= nil then
+		return true
+	end
+	if C_UnitAuras.GetAuraDataBySpellName then
+		ok, aura = pcall(C_UnitAuras.GetAuraDataBySpellName, "player", ApexName(), "HELPFUL")
+		return ok and aura ~= nil
+	end
+	return false
+end
+
 local function AnnounceApex()
 	local now = GetTime()
 	if ns.db.apexEnabled and now - apexSpokenAt > APEX_DEBOUNCE then
@@ -193,8 +218,7 @@ end
 
 -- The buff appearing catches procs even if the summon cast is not reported. Aura details can be hidden in instances.
 local function CheckApex()
-	local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, ANSWERED_CALLING_BUFF)
-	local active = ok and aura ~= nil
+	local active = HasApexBuff()
 	if active and not apexActive then
 		AnnounceApex()
 	end
@@ -213,7 +237,7 @@ local function OnCast(spellID)
 		return
 	end
 	-- A new spirit while one is already out only refreshes the buff, so the cast is what catches it.
-	if spellID == ANSWERED_CALLING_SUMMON or spellID == ANSWERED_CALLING_BUFF then
+	if IsApexSpell(spellID) then
 		AnnounceApex()
 	end
 	-- Fallback for when cooldowns are hidden: a successful use starts the remembered cooldown.
@@ -226,6 +250,43 @@ local function OnCast(spellID)
 				w.readyAt = now + duration
 			end
 		end
+	end
+end
+
+-- /druidm spy: prints your casts and gained buffs, to find the spell IDs of a proc.
+local spyFrame
+
+local function SpyLabel(id, name)
+	if IsSecret(id) then
+		return "(hidden by the client)"
+	end
+	name = name or C_Spell.GetSpellName(id)
+	return ("%s %s"):format(tostring(id), (name and not IsSecret(name)) and name or "?")
+end
+
+function ns.ToggleSpy()
+	if not spyFrame then
+		spyFrame = CreateFrame("Frame")
+		spyFrame:SetScript("OnEvent", function(_, event, _, arg2, arg3)
+			if event == "UNIT_SPELLCAST_SUCCEEDED" then
+				print("|cff33ff99cast|r " .. SpyLabel(arg3))
+			elseif type(arg2) == "table" and arg2.addedAuras then
+				for _, aura in ipairs(arg2.addedAuras) do
+					if IsSecret(aura.isHelpful) or aura.isHelpful then
+						print("|cff33ccffbuff|r " .. SpyLabel(aura.spellId, aura.name))
+					end
+				end
+			end
+		end)
+	end
+	if spyFrame:IsEventRegistered("UNIT_AURA") then
+		spyFrame:UnregisterAllEvents()
+		ns.Print("spy off")
+	else
+		spyFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+		spyFrame:RegisterUnitEvent("UNIT_AURA", "player")
+		ns.Print(("spy on - printing your casts and new buffs (Apex looks for %d / %d, or the name \"%s\"). " ..
+			"Run /druidm spy again to stop."):format(ANSWERED_CALLING_BUFF, ANSWERED_CALLING_SUMMON, ApexName()))
 	end
 end
 

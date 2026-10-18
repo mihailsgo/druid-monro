@@ -1,8 +1,10 @@
 local ADDON_NAME, ns = ...
 
--- Glows the selected trinket on the default action bars (direct item or a macro that uses it) while it can be used.
+-- Glows the selected trinket on action bars (placed directly or through a macro) while it can be used.
+-- Supports the default bars, ButtonForge, and LibActionButton bars (Bartender4, ElvUI).
 
 local GCD_THRESHOLD = 1.5
+local RESCAN_INTERVAL = 2 -- ButtonForge changes fire no event
 local PROC_ATLAS = "UI-HUD-ActionBar-Proc-Loop-Flipbook"
 local BAR_PREFIXES = {
 	"ActionButton",
@@ -14,9 +16,10 @@ local BAR_PREFIXES = {
 	"MultiBar6Button",
 	"MultiBar7Button",
 }
+local LAB_VERSIONS = { "LibActionButton-1.0", "LibActionButton-1.0-ElvUI" }
 
-local buttons = {} -- every default action button
-local buttonItem = {} -- button -> itemID its action uses (rebuilt when bars change)
+local buttonItem = {} -- button -> itemID its action uses (rebuilt by Rescan)
+local buttonSource = {} -- button -> bar addon name, for /druidm glowdebug
 local glows = {} -- button -> glow frame
 
 local function IsSecret(v)
@@ -27,33 +30,92 @@ local function HasProcAtlas()
 	return C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(PROC_ATLAS) ~= nil
 end
 
-local function ActionItemID(slot)
-	local actionType, id = GetActionInfo(slot)
+-- itemID for a GetActionInfo-style ("item", id) / ("macro", index) pair, else nil.
+local function ResolveAction(actionType, id)
 	if IsSecret(actionType) or IsSecret(id) then
 		return nil
 	end
 	if actionType == "item" then
-		return id
-	elseif actionType == "macro" then
-		local _, link = GetMacroItem(id) -- also resolves "/use 13"
-		if link then
+		return tonumber(id) or (type(id) == "string" and tonumber(id:match("item:(%d+)"))) or nil
+	elseif actionType == "macro" and GetMacroItem then
+		local ok, _, link = pcall(GetMacroItem, id) -- also resolves "/use 13"
+		if ok and link then
 			return (C_Item.GetItemInfoInstant(link))
+		end
+	end
+end
+
+local function SlotItemID(slot)
+	if not slot or IsSecret(slot) then
+		return nil
+	end
+	return ResolveAction(GetActionInfo(slot))
+end
+
+local function CollectBlizzard(add)
+	for _, prefix in ipairs(BAR_PREFIXES) do
+		for i = 1, 12 do
+			local button = _G[prefix .. i]
+			if button then
+				local slot = button.action
+				if not slot and button.CalculateAction then
+					slot = button:CalculateAction()
+				end
+				add(button, SlotItemID(slot), "Blizzard")
+			end
+		end
+	end
+end
+
+local function CollectLibActionButton(add)
+	if not LibStub then
+		return
+	end
+	for _, major in ipairs(LAB_VERSIONS) do
+		local lab = LibStub(major, true)
+		if lab and lab.buttonRegistry then
+			for button in pairs(lab.buttonRegistry) do
+				local kind, action = button._state_type, button._state_action
+				if kind == "action" then
+					add(button, SlotItemID(action), major)
+				elseif kind == "item" then
+					add(button, ResolveAction("item", action), major)
+				end
+			end
+		end
+	end
+end
+
+local function CollectButtonForge(add)
+	local bf = ButtonForge_API1
+	if not (bf and bf.GetButtonFrameNames and bf.GetButtonActionInfo) then
+		return
+	end
+	for _, name in ipairs(bf.GetButtonFrameNames()) do
+		local button = _G[name]
+		if button then
+			add(button, ResolveAction(bf.GetButtonActionInfo(name)), "ButtonForge")
 		end
 	end
 end
 
 local function Rescan()
 	wipe(buttonItem)
-	for _, button in ipairs(buttons) do
-		local slot = button.action
-		if slot and not IsSecret(slot) then
-			local ok, id = pcall(ActionItemID, slot)
-			buttonItem[button] = ok and id or nil
+	wipe(buttonSource)
+	local function add(button, itemID, source)
+		buttonSource[button] = source
+		buttonItem[button] = itemID
+	end
+	-- Each source on its own, so one bar addon misbehaving does not hide the others.
+	for _, collect in ipairs({ CollectBlizzard, CollectLibActionButton, CollectButtonForge }) do
+		local ok, err = pcall(collect, add)
+		if not ok and ns.glowDebugErrors then
+			ns.Print("glow scan error: " .. tostring(err))
 		end
 	end
 end
 
--- Bars update their own button.action in the same event, so rescan once they are done.
+-- Bars update their own actions in the same event, so rescan once they are done.
 local rescanPending = false
 local function QueueRescan()
 	if not rescanPending then
@@ -66,27 +128,35 @@ local function QueueRescan()
 	end
 end
 
--- The trinket's itemID while it should glow, else nil.
+-- The trinket's itemID while it should glow, else nil (plus a reason, for /druidm glowdebug).
 local function GlowingItem()
 	local db = ns.db
 	local id = db.trinketItemID
-	if not (db.trinketGlow and id and C_Item.IsEquippedItem(id)) then
-		return nil
+	if not db.trinketGlow then
+		return nil, "glow is turned off"
+	elseif not id then
+		return nil, "no trinket selected"
+	elseif not C_Item.IsEquippedItem(id) then
+		return nil, "trinket not equipped"
 	end
 	if ns.IsPreview() then
-		return id
+		return id, "preview (settings open / unlocked)"
 	end
 	local start, duration, enabled = C_Item.GetItemCooldown(id)
 	if IsSecret(start) or IsSecret(duration) or IsSecret(enabled) then
 		-- Hidden cooldown: trust the voice reminder's estimate.
-		return ns.TrinketCooling() == false and id or nil
+		if ns.TrinketCooling() == false then
+			return id, "cooldown hidden, estimated ready"
+		end
+		return nil, "cooldown hidden, estimated on cooldown"
 	end
 	if enabled == false or enabled == 0 then
-		return nil
+		return nil, "cooldown waiting to start"
 	end
 	if not start or start == 0 or not duration or duration <= GCD_THRESHOLD then
-		return id
+		return id, "ready"
 	end
+	return nil, ("on cooldown, %.0fs left"):format(start + duration - GetTime())
 end
 
 local function GetGlow(button)
@@ -144,21 +214,45 @@ end
 
 function ns.UpdateTrinketGlow()
 	local id = GlowingItem()
-	for _, button in ipairs(buttons) do
-		SetGlow(button, id ~= nil and buttonItem[button] == id)
+	for button in pairs(glows) do
+		if not (id and buttonItem[button] == id) then
+			SetGlow(button, false)
+		end
 	end
-end
-
-function ns.InitTrinketGlow()
-	for _, prefix in ipairs(BAR_PREFIXES) do
-		for i = 1, 12 do
-			local button = _G[prefix .. i]
-			if button then
-				buttons[#buttons + 1] = button
+	if id then
+		for button, itemID in pairs(buttonItem) do
+			if itemID == id then
+				SetGlow(button, true)
 			end
 		end
 	end
+end
 
+-- /druidm glowdebug: why the trinket is or is not glowing, and which buttons hold it.
+function ns.GlowDebug()
+	Rescan()
+	local id = ns.db.trinketItemID
+	ns.Print("trinket glow debug")
+	print(("  trinket: %s (%s)"):format(id and (C_Item.GetItemNameByID(id) or "?") or "none", tostring(id)))
+	local glowing, reason = GlowingItem()
+	print(("  should glow: %s - %s"):format(glowing and "yes" or "no", reason))
+	local counts, matches = {}, {}
+	for button, source in pairs(buttonSource) do
+		counts[source] = (counts[source] or 0) + 1
+		if id and buttonItem[button] == id then
+			matches[#matches + 1] = ("%s [%s]%s"):format(button:GetName() or "?", source, button:IsVisible() and "" or " (hidden)")
+		end
+	end
+	local parts = {}
+	for source, n in pairs(counts) do
+		parts[#parts + 1] = ("%s %d"):format(source, n)
+	end
+	print("  buttons scanned: " .. (#parts > 0 and table.concat(parts, ", ") or "none"))
+	print("  buttons with the trinket: " .. (#matches > 0 and table.concat(matches, ", ") or "none found"))
+	ns.UpdateTrinketGlow()
+end
+
+function ns.InitTrinketGlow()
 	local events = CreateFrame("Frame")
 	events:RegisterEvent("PLAYER_ENTERING_WORLD")
 	events:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
@@ -169,5 +263,6 @@ function ns.InitTrinketGlow()
 	events:RegisterEvent("UPDATE_MACROS")
 	events:SetScript("OnEvent", QueueRescan)
 	C_Timer.NewTicker(0.25, ns.UpdateTrinketGlow)
+	C_Timer.NewTicker(RESCAN_INTERVAL, QueueRescan)
 	QueueRescan()
 end

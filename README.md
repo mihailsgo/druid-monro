@@ -70,12 +70,14 @@ callouts), so no sound files are needed.
   below work only while that trinket is equipped.
   - **Say "Trinket ready"** each time its cooldown ends. Lockouts of 30s or less are ignored, so equipping a trinket or
     using your other on-use trinket does not trigger it.
-  - **Glow on action bars while ready** - the trinket's button on the default Blizzard action bars (placed directly or
-    through a macro such as `/use 13`) shows the proc glow whenever the trinket can be used. Previewed while the
-    settings are open. Bars from other addons (Bartender, ElvUI, Dominos) are not supported.
+  - **Glow on action bars while ready** - the trinket's button (placed directly or through a macro such as `/use 13`)
+    shows the proc glow whenever the trinket can be used. Works on the default Blizzard bars, **ButtonForge**, and
+    LibActionButton bars (**Bartender4**, **ElvUI**); not on other bar addons. Previewed while the settings are open.
+    `/druidm glowdebug` prints why it is or is not glowing and which buttons hold the trinket.
 - **Heart of the Wild ready** - says "Heart of the Wild ready" when Heart of the Wild comes off cooldown (only while talented).
 - **Apex proc** - says "Apex" when Wild Guardian (the Guardian apex talent) awakens a guardian spirit, i.e. when you gain
-  the Answered Calling buff. A new spirit that only refreshes the buff is announced too.
+  the Answered Calling buff (matched by spell ID and by name). A new spirit that only refreshes the buff is announced
+  too. If it stays silent, `/druidm spy` prints your casts and new buffs so the right spell ID can be found.
 - **Voice** - pick an installed Windows speech voice, or **Automatic**: the voice chosen in MonroMDTTrack if any,
   otherwise the best installed one (Windows 11 "Natural" voices first). **Test** speaks a sample and prints why if it fails.
 - Speech rate and volume follow the game's Text to Speech settings. Add more voices under Windows
@@ -104,3 +106,5 @@ unlock/lock, **drag** moves it around the minimap. It can be hidden from the Gen
 | `/druidm unlock` | toggle unlock/lock for dragging |
 | `/druidm minimap` | show or hide the minimap button |
 | `/druidm reset` | reset everything to defaults |
+| `/druidm glowdebug` | show why the trinket is or is not glowing |
+| `/druidm spy` | print your casts and new buffs (run again to stop) |

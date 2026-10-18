@@ -100,6 +100,8 @@ function ns.PrintHelp()
 	print("  /druidm unlock - show the text and Moonfire indicator and unlock them for dragging (run again to lock)")
 	print("  /druidm minimap - show or hide the minimap button")
 	print("  /druidm reset - reset all settings and positions to defaults")
+	print("  /druidm glowdebug - show why the trinket is or is not glowing")
+	print("  /druidm spy - print your casts and new buffs (to find proc spell IDs); run again to stop")
 end
 
 function ns.ResetAll()
@@ -128,6 +130,10 @@ SlashCmdList["DRUIDMONRO"] = function(msg)
 		ns.Print("minimap button " .. (ns.db.minimap.hide and "hidden" or "shown"))
 	elseif cmd == "absorbdebug" then
 		ns.AbsorbDebug()
+	elseif cmd == "glowdebug" then
+		ns.GlowDebug()
+	elseif cmd == "spy" then
+		ns.ToggleSpy()
 	elseif cmd == "reset" then
 		ns.ResetAll()
 	else
