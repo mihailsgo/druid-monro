@@ -342,7 +342,12 @@ end
 local PAGE_TOP = -72
 
 local function BuildGeneralPage()
-	local page = Page("general", "General", "Settings that are not tied to a single feature.")
+	local description = "Settings that are not tied to a single feature."
+	if not ns.IsDruid() then
+		description = description .. " Druid-only features (Bear Form text, Moonfire indicator, Rage panel, Heart of the Wild "
+			.. "and Apex reminders) are hidden on this character."
+	end
+	local page = Page("general", "General", description)
 
 	local ui = Panel(page, "Interface")
 	ui:SetPoint("TOPLEFT", 0, PAGE_TOP)
@@ -713,10 +718,12 @@ end
 -- Absorb page ----------------------------------------------------------------
 
 local function BuildAbsorbPage()
+	local druid = ns.IsDruid()
 	local page = Page(
 		"absorb",
 		"Absorb shield",
-		"Shows a Power Word: Shield icon with your total absorb (Frenzied Regeneration and any other absorbs) while you have one."
+		druid and "Shows a Power Word: Shield icon with your total absorb (Frenzied Regeneration and any other absorbs) while you have one."
+			or "Shows a Power Word: Shield icon with your total absorb while you have one."
 	)
 	local p = Panel(page, "Show the absorb icon", function()
 		return ns.db.absorbEnabled
@@ -725,7 +732,7 @@ local function BuildAbsorbPage()
 	end)
 	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
 	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
-	p:SetHeight(230)
+	p:SetHeight(druid and 230 or 170)
 	widgets.absorbEnabled = p.toggle
 	local c = p.content
 
@@ -741,11 +748,13 @@ local function BuildAbsorbPage()
 		ns.db.absorbFontSize = v
 	end)
 
-	widgets.absorbFrenziedOnly = Checkbox(c, "Only while Frenzied Regeneration is active", 0, -112, function()
-		return ns.db.absorbFrenziedOnly
-	end, function(v)
-		ns.db.absorbFrenziedOnly = v
-	end)
+	if druid then
+		widgets.absorbFrenziedOnly = Checkbox(c, "Only while Frenzied Regeneration is active", 0, -112, function()
+			return ns.db.absorbFrenziedOnly
+		end, function(v)
+			ns.db.absorbFrenziedOnly = v
+		end)
+	end
 end
 
 -- Voice reminders page -------------------------------------------------------
@@ -786,7 +795,8 @@ local function BuildRemindersPage()
 	local page = Page(
 		"reminders",
 		"Voice reminders",
-		"Text-to-speech callouts when a cooldown is ready again or a proc happens."
+		ns.IsDruid() and "Text-to-speech callouts when a cooldown is ready again or a proc happens."
+			or "Text-to-speech callout and action-bar glow when your on-use trinket is ready again."
 	)
 
 	local v = Panel(page, "Voice")
@@ -843,6 +853,10 @@ local function BuildRemindersPage()
 		end
 	end
 
+	if not ns.IsDruid() then
+		return -- Heart of the Wild and Apex are Druid-only
+	end
+
 	-- Heart of the Wild and Apex share a row.
 	local h = Panel(page, "Heart of the Wild ready", function()
 		return ns.db.heartEnabled
@@ -896,25 +910,37 @@ local function BuildMainPanel()
 	nav:SetWidth(NAV_WIDTH)
 	Label(nav, "DruidMonro", 0, 0, "GameFontNormalHuge")
 
-	NavItem(nav, "general", "General", -44)
-	NavItem(nav, "bear", "Bear Form text", -74, function()
-		return ns.db.textEnabled
-	end)
-	NavItem(nav, "indicator", "Moonfire indicator", -104, function()
-		return ns.db.indicatorEnabled
-	end)
-	NavItem(nav, "trackers", "Ability trackers", -134, function()
+	-- Druid-only features get no sidebar entry (or page) on other classes.
+	local druid = ns.IsDruid()
+	local navY = -44
+	local function Nav(key, label, isOn)
+		NavItem(nav, key, label, navY, isOn)
+		navY = navY - 30
+	end
+
+	Nav("general", "General")
+	if druid then
+		Nav("bear", "Bear Form text", function()
+			return ns.db.textEnabled
+		end)
+		Nav("indicator", "Moonfire indicator", function()
+			return ns.db.indicatorEnabled
+		end)
+	end
+	Nav("trackers", "Ability trackers", function()
 		return ns.db.trackersEnabled
 	end)
-	NavItem(nav, "rage", "Rage panel", -164, function()
-		return ns.db.rageEnabled
-	end)
-	NavItem(nav, "absorb", "Absorb shield", -194, function()
+	if druid then
+		Nav("rage", "Rage panel", function()
+			return ns.db.rageEnabled
+		end)
+	end
+	Nav("absorb", "Absorb shield", function()
 		return ns.db.absorbEnabled
 	end)
-	NavItem(nav, "reminders", "Voice reminders", -224, function()
+	Nav("reminders", "Voice reminders", function()
 		local db = ns.db
-		return db.trinketEnabled or db.trinketGlow or db.heartEnabled or db.apexEnabled
+		return db.trinketEnabled or db.trinketGlow or (druid and (db.heartEnabled or db.apexEnabled))
 	end)
 
 	local reset = ActionButton(nav, "Reset all", NAV_WIDTH, function()
@@ -940,10 +966,14 @@ local function BuildMainPanel()
 	content:SetPoint("BOTTOMRIGHT", -16, 16)
 
 	BuildGeneralPage()
-	BuildBearPage()
-	BuildIndicatorPage()
+	if druid then
+		BuildBearPage()
+		BuildIndicatorPage()
+	end
 	BuildTrackerPage()
-	BuildRagePage()
+	if druid then
+		BuildRagePage()
+	end
 	BuildAbsorbPage()
 	BuildRemindersPage()
 	SelectPage(currentPage)

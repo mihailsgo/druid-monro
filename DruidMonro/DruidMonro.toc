@@ -1,6 +1,6 @@
 ## Interface: 120105
 ## Title: DruidMonro
-## Notes: Druid helpers: a customizable "not in Bear Form" text and a Moonfire proc indicator with selectable glow.
+## Notes: Druid helpers (Bear Form text, Moonfire proc indicator, rage panel) plus class-independent ability trackers, absorb icon and trinket voice/glow.
 ## Author: mihailsgo
 ## Version: 0.1.0
 ## SavedVariables: DruidMonroDB

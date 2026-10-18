@@ -2,6 +2,11 @@
 
 World of Warcraft addon for Druids. Copy the `DruidMonro` folder into `World of Warcraft\_retail_\Interface\AddOns\`.
 
+It also works on other classes: the Druid-only features (Bear Form text, Moonfire indicator, Rage panel, Heart of the
+Wild reminder and Apex proc) stay off and disappear from the settings window, while the class-independent ones keep
+working - **Ability trackers**, the **Absorb shield** icon, the **trinket** voice reminder and action-bar glow, the voice
+selection and the minimap button. (The "Only while Frenzied Regeneration is active" absorb option is Druid-only too.)
+
 Open the configuration with `/druidm` (or `/druidmonro`), or via **Game Menu > Options > AddOns > DruidMonro**.
 
 ## Settings window

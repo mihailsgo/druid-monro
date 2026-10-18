@@ -103,7 +103,7 @@ local watchers = {
 		memoKey = "spell:",
 		minDuration = GCD_THRESHOLD,
 		id = function()
-			if ns.db.heartEnabled then
+			if ns.db.heartEnabled and ns.IsDruid() then
 				return ns.KnownHeartOfTheWild()
 			end
 		end,
@@ -238,7 +238,7 @@ function ns.ApplyApexSound()
 	if not (ns.db and HasAuraSoundAPI()) then
 		return
 	end
-	local want = ns.db.apexEnabled and true or false
+	local want = ns.IsDruid() and ns.db.apexEnabled and true or false
 	if want == (#apexHandles > 0) or not CanRegisterAuraSound() then
 		return
 	end
@@ -271,6 +271,9 @@ end
 
 -- The buff appearing catches procs even if the summon cast is not reported. Aura details can be hidden in instances.
 local function CheckApex()
+	if not ns.IsDruid() then
+		return
+	end
 	local active = HasApexBuff()
 	if active and not apexActive then
 		AnnounceApex()
@@ -290,7 +293,7 @@ local function OnCast(spellID)
 		return
 	end
 	-- A new spirit while one is already out only refreshes the buff, so the cast is what catches it.
-	if IsApexSpell(spellID) then
+	if ns.IsDruid() and IsApexSpell(spellID) then
 		AnnounceApex()
 	end
 	-- Fallback for when cooldowns are hidden: a successful use starts the remembered cooldown.

@@ -75,13 +75,12 @@ local function ApplyText()
 	bg:SetShown(ns.unlocked)
 
 	local show
-	if not db.textEnabled then
+	if not db.textEnabled or not ns.IsDruid() then
 		show = false
 	elseif ns.IsPreview() then
 		show = true
 	else
-		show = ns.IsDruid()
-				and (not db.textCombatOnly or UnitAffectingCombat("player"))
+		show = (not db.textCombatOnly or UnitAffectingCombat("player"))
 				and (not db.textDungeonOnly or select(2, IsInInstance()) == "party")
 				and not InBearForm()
 				and strtrim(db.text) ~= ""
@@ -142,13 +141,15 @@ function ns.InitDisplay()
 	events:RegisterEvent("PLAYER_REGEN_ENABLED")
 	events:SetScript("OnEvent", ns.Apply)
 
-	if ns.InitIndicator then
+	-- Bear text, Moonfire indicator and rage panel are Druid-only; on other classes their frames are never created
+	-- (their Apply functions do nothing without a frame). Trackers, absorb, voice reminders and trinket glow work for any class.
+	if ns.IsDruid() and ns.InitIndicator then
 		ns.InitIndicator()
 	end
 	if ns.InitTrackers then
 		ns.InitTrackers()
 	end
-	if ns.InitRage then
+	if ns.IsDruid() and ns.InitRage then
 		ns.InitRage()
 	end
 	if ns.InitAbsorb then

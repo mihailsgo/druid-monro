@@ -52,10 +52,8 @@ local function ShouldShow()
 	if ns.IsPreview() then
 		return true
 	end
-	if not ns.IsDruid() then
-		return false
-	end
-	return not db.absorbFrenziedOnly or HasFrenzied()
+	-- Frenzied Regeneration is a Druid spell, so that option only applies to Druids.
+	return not (db.absorbFrenziedOnly and ns.IsDruid()) or HasFrenzied()
 end
 
 -- Cheap pass for aura / absorb events.
