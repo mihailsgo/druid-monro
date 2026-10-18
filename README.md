@@ -89,8 +89,9 @@ callouts), so no sound files are needed.
   otherwise the best installed one (Windows 11 "Natural" voices first). **Test** speaks a sample and prints why if it fails.
 - Speech rate and volume follow the game's Text to Speech settings. Add more voices under Windows
   **Settings > Time & Language > Speech**, then `/reload`.
-- If the client hides cooldowns (Midnight restricted content), a successful use restarts the longest cooldown seen for
-  that trinket/spell so the reminder still fires.
+- In combat the client can hide a cooldown or report it as ready, so a successful cast also starts the addon's own timer
+  (the longest cooldown seen, or the spell's base cooldown). After a cast, a "ready" reading is only trusted once the
+  client has shown that cooldown running.
 
 ### Turning features on and off
 Each feature panel has an enable checkbox as its title (Not in Bear Form text, Moonfire proc indicator, Ability
@@ -115,3 +116,4 @@ unlock/lock, **drag** moves it around the minimap. It can be hidden from the Gen
 | `/druidm reset` | reset everything to defaults |
 | `/druidm glowdebug` | show why the trinket is or is not glowing |
 | `/druidm spy` | print your casts and new buffs (run again to stop) |
+| `/druidm cddebug` | show what the trinket / Heart of the Wild voice reminders see right now |

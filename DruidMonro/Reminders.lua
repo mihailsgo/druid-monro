@@ -119,6 +119,10 @@ local watchers = {
 		castSpell = function(id)
 			return id
 		end,
+		baseCooldown = function(id)
+			local ms = GetSpellBaseCooldown and GetSpellBaseCooldown(id)
+			return (ms and not IsSecret(ms) and ms > 0) and ms / 1000 or nil
+		end,
 	},
 }
 
@@ -146,24 +150,52 @@ local function ReadyAt(w, id)
 	return start + duration
 end
 
+local voiceErrorShown = false
+
 local function Check(w)
 	local id = w.id()
 	if id ~= w.lastID then
-		w.lastID, w.readyAt, w.cooling = id, nil, nil
+		w.lastID, w.readyAt, w.cooling, w.trusted = id, nil, nil, nil
 	end
 	if not id then
 		return
 	end
+	local now = GetTime()
 	local ok, at = pcall(ReadyAt, w, id)
+	w.lastRead = ok and at or "hidden" -- for /druidm cddebug
+	-- In combat the client can hide a cooldown or report it as ready. After a cast (see OnCast) a "ready" reading is
+	-- only believed once the client has shown this cooldown running, which proves it is reporting truthfully.
 	if ok and at ~= nil then
-		w.readyAt = at
+		if at > now then
+			w.trusted = true
+		end
+		if at > now or w.trusted or not (w.readyAt and w.readyAt > now) then
+			w.readyAt = at
+		end
 	end
 	-- otherwise keep the last known end time
-	local cooling = w.readyAt ~= nil and GetTime() < w.readyAt
+	local cooling = w.readyAt ~= nil and now < w.readyAt
 	if w.cooling and not cooling and w.speak() then
-		ns.Speak(w.text)
+		local spoke, err = ns.Speak(w.text)
+		if not spoke and not voiceErrorShown then
+			voiceErrorShown = true
+			ns.Print(("could not say \"%s\": %s"):format(w.text, tostring(err)))
+		end
 	end
 	w.cooling = cooling
+end
+
+local function IsCastOf(w, id, spellID)
+	local castID = w.castSpell(id)
+	if not castID then
+		return false
+	end
+	if castID == spellID then
+		return true
+	end
+	-- Same name catches form-specific or overridden versions of the spell.
+	local a, b = C_Spell.GetSpellName(castID), C_Spell.GetSpellName(spellID)
+	return a ~= nil and not IsSecret(a) and not IsSecret(b) and a == b
 end
 
 -- The voice watcher's view of the selected trinket: true on cooldown, false ready, nil unknown / not watched.
@@ -296,16 +328,38 @@ local function OnCast(spellID)
 	if ns.IsDruid() and IsApexSpell(spellID) then
 		AnnounceApex()
 	end
-	-- Fallback for when cooldowns are hidden: a successful use starts the remembered cooldown.
+	-- A successful use starts the remembered (or base) cooldown, for when the client hides or misreports it.
 	local now = GetTime()
 	for _, w in ipairs(watchers) do
 		local id = w.lastID
-		if id and w.castSpell(id) == spellID and not (w.readyAt and w.readyAt > now) then
-			local duration = ns.db.cooldownMemory[w.memoKey .. id]
+		if id and IsCastOf(w, id, spellID) and not (w.readyAt and w.readyAt > now) then
+			local duration = ns.db.cooldownMemory[w.memoKey .. id] or (w.baseCooldown and w.baseCooldown(id))
 			if duration then
 				w.readyAt = now + duration
+				w.trusted = false
+				w.cooling = true
 			end
 		end
+	end
+end
+
+-- /druidm cddebug: what each reminder sees right now.
+function ns.CooldownDebug()
+	ns.Print("voice reminder debug")
+	local now = GetTime()
+	for _, w in ipairs(watchers) do
+		local id = w.id()
+		local line = ("  %s: watching %s"):format(w.text, tostring(id))
+		if id then
+			local read = w.lastRead
+			if type(read) == "number" then
+				read = read == 0 and "ready" or read == math.huge and "waiting" or ("%.0fs left"):format(read - now)
+			end
+			line = line .. ("; client says %s; addon thinks %s; trusted=%s; remembered %ss"):format(tostring(read),
+				w.cooling and ("on cooldown, %.0fs left"):format((w.readyAt or now) - now) or "ready", tostring(w.trusted),
+				tostring(ns.db.cooldownMemory[w.memoKey .. id]))
+		end
+		print(line)
 	end
 end
 

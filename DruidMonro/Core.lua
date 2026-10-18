@@ -102,6 +102,7 @@ function ns.PrintHelp()
 	print("  /druidm reset - reset all settings and positions to defaults")
 	print("  /druidm glowdebug - show why the trinket is or is not glowing")
 	print("  /druidm spy - print your casts and new buffs (to find proc spell IDs); run again to stop")
+	print("  /druidm cddebug - show what the trinket / Heart of the Wild voice reminders see right now")
 end
 
 function ns.ResetAll()
@@ -134,6 +135,8 @@ SlashCmdList["DRUIDMONRO"] = function(msg)
 		ns.GlowDebug()
 	elseif cmd == "spy" then
 		ns.ToggleSpy()
+	elseif cmd == "cddebug" then
+		ns.CooldownDebug()
 	elseif cmd == "reset" then
 		ns.ResetAll()
 	else
