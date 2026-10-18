@@ -873,6 +873,10 @@ local function BuildRemindersPage()
 	a:SetPoint("TOPRIGHT", t, "BOTTOMRIGHT", 0, -12)
 	a:SetHeight(95)
 	widgets.apexEnabled = a.toggle
+	local apexTest = ActionButton(a, "Test", 60, function()
+		PlaySoundFile(ns.APEX_SOUND, "Master")
+	end)
+	apexTest:SetPoint("TOPRIGHT", -8, -8)
 	local apexText = Label(a.content, "Says \"Apex\" when Wild Guardian awakens a spirit (Answered Calling).", 0, 0,
 		"GameFontHighlight")
 	apexText:SetPoint("TOPRIGHT")

@@ -106,6 +106,9 @@ function ns.Apply()
 	if ns.ApplyMinimap then
 		ns.ApplyMinimap()
 	end
+	if ns.ApplyApexSound then
+		ns.ApplyApexSound()
+	end
 end
 
 function ns.SetUnlocked(value)

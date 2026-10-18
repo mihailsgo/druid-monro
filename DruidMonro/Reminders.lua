@@ -208,9 +208,62 @@ local function HasApexBuff()
 	return false
 end
 
+-- Since 12.1 addons cannot see auras appear, but the engine can play a sound file when a given aura lands on a unit.
+-- So "Apex" is a baked clip (Zira voice) the engine plays itself; the text-to-speech path below is only the fallback
+-- for clients without C_UnitAuras.AddAuraSound.
+ns.APEX_SOUND = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Sounds\\Apex.ogg"
+local apexHandles = {}
+
+local function HasAuraSoundAPI()
+	return C_UnitAuras and C_UnitAuras.AddAuraSound and C_UnitAuras.RemoveAuraSound and Enum
+		and Enum.UnitAuraSoundTrigger and true or false
+end
+
+-- AddAuraSound is a blocked action in combat inside instanced PvE.
+local function CanRegisterAuraSound()
+	local _, instanceType = IsInInstance()
+	return instanceType == "none" or instanceType == "pvp" or instanceType == "arena" or not InCombatLockdown()
+end
+
+local function RemoveApexSound()
+	for i = #apexHandles, 1, -1 do
+		pcall(C_UnitAuras.RemoveAuraSound, apexHandles[i])
+		apexHandles[i] = nil
+	end
+end
+
+-- Registers or removes the engine sound to match the setting; cheap when nothing changes. Called from ns.Apply, which
+-- also runs when combat ends, so a registration refused in combat is retried then.
+function ns.ApplyApexSound()
+	if not (ns.db and HasAuraSoundAPI()) then
+		return
+	end
+	local want = ns.db.apexEnabled and true or false
+	if want == (#apexHandles > 0) or not CanRegisterAuraSound() then
+		return
+	end
+	if not want then
+		RemoveApexSound()
+		return
+	end
+	local ok, handle = pcall(C_UnitAuras.AddAuraSound, Enum.UnitAuraSoundTrigger.Added, {
+		unitToken = "player",
+		spellID = ANSWERED_CALLING_BUFF,
+		soundFileName = ns.APEX_SOUND,
+		outputChannel = "Master",
+	})
+	if ok and handle then
+		apexHandles[#apexHandles + 1] = handle
+	end
+end
+
+function ns.ApexSoundRegistered()
+	return #apexHandles > 0
+end
+
 local function AnnounceApex()
 	local now = GetTime()
-	if ns.db.apexEnabled and now - apexSpokenAt > APEX_DEBOUNCE then
+	if ns.db.apexEnabled and not ns.ApexSoundRegistered() and now - apexSpokenAt > APEX_DEBOUNCE then
 		apexSpokenAt = now
 		ns.Speak("Apex")
 	end
@@ -285,8 +338,9 @@ function ns.ToggleSpy()
 	else
 		spyFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 		spyFrame:RegisterUnitEvent("UNIT_AURA", "player")
-		ns.Print(("spy on - printing your casts and new buffs (Apex looks for %d / %d, or the name \"%s\"). " ..
-			"Run /druidm spy again to stop."):format(ANSWERED_CALLING_BUFF, ANSWERED_CALLING_SUMMON, ApexName()))
+		ns.Print(("spy on - printing your casts and new buffs (Apex looks for %d / %d, or the name \"%s\"; " ..
+			"engine sound %s). Run /druidm spy again to stop."):format(ANSWERED_CALLING_BUFF, ANSWERED_CALLING_SUMMON,
+			ApexName(), ns.ApexSoundRegistered() and "registered" or "NOT registered"))
 	end
 end
 
@@ -302,6 +356,10 @@ function ns.InitReminders()
 	events:SetScript("OnEvent", function(_, event, _, _, spellID)
 		if event == "UNIT_SPELLCAST_SUCCEEDED" then
 			OnCast(spellID)
+		elseif event == "PLAYER_ENTERING_WORLD" and CanRegisterAuraSound() then
+			-- Start clean after a loading screen in case the engine dropped the registration.
+			RemoveApexSound()
+			ns.ApplyApexSound()
 		end
 		CheckAll()
 	end)

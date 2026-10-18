@@ -76,8 +76,10 @@ callouts), so no sound files are needed.
     `/druidm glowdebug` prints why it is or is not glowing and which buttons hold the trinket.
 - **Heart of the Wild ready** - says "Heart of the Wild ready" when Heart of the Wild comes off cooldown (only while talented).
 - **Apex proc** - says "Apex" when Wild Guardian (the Guardian apex talent) awakens a guardian spirit, i.e. when you gain
-  the Answered Calling buff (matched by spell ID and by name). A new spirit that only refreshes the buff is announced
-  too. If it stays silent, `/druidm spy` prints your casts and new buffs so the right spell ID can be found.
+  the Answered Calling buff (1308647). Since patch 12.1 addons cannot see buffs appear, so the addon registers a
+  recorded clip (`Sounds/Apex.ogg`, Zira voice) with `C_UnitAuras.AddAuraSound` and the game plays it itself; **Test**
+  plays the clip. Registration is not allowed in combat inside instanced PvE, so it happens on login/loading screens
+  and is retried when combat ends. `/druidm spy` prints your casts and new buffs, and says whether the sound is registered.
 - **Voice** - pick an installed Windows speech voice, or **Automatic**: the voice chosen in MonroMDTTrack if any,
   otherwise the best installed one (Windows 11 "Natural" voices first). **Test** speaks a sample and prints why if it fails.
 - Speech rate and volume follow the game's Text to Speech settings. Add more voices under Windows
