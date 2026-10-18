@@ -34,6 +34,15 @@ ns.defaults = {
 	rageX = 0,
 	rageY = -100,
 
+	enrageEnabled = true, -- Druid only: panel listing the mobs that are enraged right now, i.e. where to cast Soothe
+	enrageSay = true, -- say "Soothe" when a mob enrages
+	enrageMarker = true, -- Soothe icon over the enraged mob's nameplate
+	enrageMarkerSize = 40,
+	enrageWidth = 230,
+	enrageRows = 4, -- mobs listed at once
+	enrageX = 260,
+	enrageY = 40,
+
 	absorbEnabled = true, -- Power Word: Shield icon with the total absorb on you, shown while you have any absorb
 	absorbFrenziedOnly = false, -- only while Frenzied Regeneration is active
 	absorbSize = 64,
@@ -103,6 +112,7 @@ function ns.PrintHelp()
 	print("  /druidm glowdebug - show why the trinket is or is not glowing")
 	print("  /druidm spy - print your casts and new buffs (to find proc spell IDs); run again to stop")
 	print("  /druidm cddebug - show what the trinket / Heart of the Wild voice reminders see right now")
+	print("  /druidm enragedebug - show what the client lets the enrage panel read on each enemy nameplate")
 end
 
 function ns.ResetAll()
@@ -137,6 +147,8 @@ SlashCmdList["DRUIDMONRO"] = function(msg)
 		ns.ToggleSpy()
 	elseif cmd == "cddebug" then
 		ns.CooldownDebug()
+	elseif cmd == "enragedebug" then
+		ns.EnrageDebug()
 	elseif cmd == "reset" then
 		ns.ResetAll()
 	else

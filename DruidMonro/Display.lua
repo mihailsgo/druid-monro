@@ -102,6 +102,9 @@ function ns.Apply()
 	if ns.ApplyAbsorb then
 		ns.ApplyAbsorb()
 	end
+	if ns.ApplyEnrage then
+		ns.ApplyEnrage()
+	end
 	if ns.ApplyMinimap then
 		ns.ApplyMinimap()
 	end
@@ -141,7 +144,7 @@ function ns.InitDisplay()
 	events:RegisterEvent("PLAYER_REGEN_ENABLED")
 	events:SetScript("OnEvent", ns.Apply)
 
-	-- Bear text, Moonfire indicator and rage panel are Druid-only; on other classes their frames are never created
+	-- Bear text, Moonfire indicator, rage panel and enrage panel are Druid-only; on other classes their frames are never created
 	-- (their Apply functions do nothing without a frame). Trackers, absorb, voice reminders and trinket glow work for any class.
 	if ns.IsDruid() and ns.InitIndicator then
 		ns.InitIndicator()
@@ -151,6 +154,9 @@ function ns.InitDisplay()
 	end
 	if ns.IsDruid() and ns.InitRage then
 		ns.InitRage()
+	end
+	if ns.IsDruid() and ns.InitEnrage then
+		ns.InitEnrage()
 	end
 	if ns.InitAbsorb then
 		ns.InitAbsorb()

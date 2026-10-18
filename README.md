@@ -2,8 +2,8 @@
 
 World of Warcraft addon for Druids. Copy the `DruidMonro` folder into `World of Warcraft\_retail_\Interface\AddOns\`.
 
-It also works on other classes: the Druid-only features (Bear Form text, Moonfire indicator, Rage panel, Heart of the
-Wild reminder and Apex proc) stay off and disappear from the settings window, while the class-independent ones keep
+It also works on other classes: the Druid-only features (Bear Form text, Moonfire indicator, Rage panel, Enrage panel,
+Heart of the Wild reminder and Apex proc) stay off and disappear from the settings window, while the class-independent ones keep
 working - **Ability trackers**, the **Absorb shield** icon, the **trinket** voice reminder and action-bar glow, the voice
 selection and the minimap button. (The "Only while Frenzied Regeneration is active" absorb option is Druid-only too.)
 
@@ -11,7 +11,7 @@ Open the configuration with `/druidm` (or `/druidmonro`), or via **Game Menu > O
 
 ## Settings window
 The settings are one window with a sidebar listing every feature: **General**, **Bear Form text**,
-**Moonfire indicator**, **Ability trackers**, **Rage panel**, **Absorb shield** and **Voice reminders**. Each feature page groups its options in a titled panel; the panel
+**Moonfire indicator**, **Ability trackers**, **Rage panel**, **Enrage panel**, **Absorb shield** and **Voice reminders**. Each feature page groups its options in a titled panel; the panel
 title is the feature's **on/off checkbox**, and its options are dimmed while the feature is off. A dot next to each
 sidebar entry shows at a glance whether that feature is on (green) or off (grey). **Unlock to move** and
 **Reset all** stay at the bottom of the sidebar on every page.
@@ -56,7 +56,31 @@ A rage bar shown while you are in Bear Form.
 - **Glow when rage is full**: a pulsing golden border around the bar while rage is at maximum (always shown while previewing/unlocked).
 - **Location** - drag it.
 
-### 5. Absorb shield
+### 5. Enrage panel
+Druid only. A small panel that appears while an enemy carries an enrage you can Soothe and lists those mobs, the one
+enraged longest first, so you know which one to cast it on.
+
+- Each row shows the mob's **raid marker** (the Soothe icon when it has none), its **name**, its **health %** and how many
+  **seconds** it has been enraged; the mob's health also fills the row behind the text. The header counts the enraged mobs.
+- **Say "Soothe"** when a mob enrages, through the same voice as the voice reminders. Several mobs enraging together are one
+  callout. **Test** speaks it.
+- **Mark the mob's nameplate** puts a pulsing Soothe icon above the enraged mob's nameplate, which is how you tell identical
+  mobs apart. Its size is adjustable, and every enraged mob gets one, also the ones that do not fit in the list.
+- **Panel width**, **Mobs listed** (1 to 6) and **location** (drag it). Previewed with sample mobs while the settings are
+  open or unlocked.
+- Mobs are found through their **enemy nameplates**, so those must be turned on and the mob within nameplate range. The
+  panel needs Soothe in your spellbook; the settings page says whether it is found.
+- Since Midnight the client hides enemy aura details in combat, but it still evaluates aura filters itself. The addon asks
+  it for the helpful buffs on each enemy nameplate that your class can remove (`HELPFUL|RAID_PLAYER_DISPELLABLE`, which
+  Blizzard's own description says includes enemy enrages). An answer other than "none" means the mob is enraged, without
+  reading any hidden value. Where the client does let the addon read the buff, one with a Magic, Curse, Disease, Poison or
+  Bleed dispel type is dropped.
+- `/druidm enragedebug` prints, per enemy nameplate, how many buffs match each filter, which is the first thing to check
+  when a mob is missing.
+- It is a display, not a button: targeting and casting are protected actions an addon cannot do for you in combat, so use
+  your normal Soothe key or macro (`[@mouseover]` works well) on the marked mob.
+
+### 6. Absorb shield
 Shows the Power Word: Shield icon with the **total absorb on you** as a full number (e.g. `315081`) while you have any
 absorb - Frenzied Regeneration's and any other source's are included in the number. It hides itself when the absorb is gone.
 
@@ -67,7 +91,7 @@ absorb - Frenzied Regeneration's and any other source's are included in the numb
   passed straight to the display without the addon reading them.
 - `/druidm absorbdebug` prints what the client lets the addon read.
 
-### 6. Voice reminders
+### 7. Voice reminders
 Spoken callouts through the game's built-in text-to-speech (the same engine and voice handling as MonroMDTTrack's boss
 callouts), so no sound files are needed.
 
@@ -95,7 +119,7 @@ callouts), so no sound files are needed.
 
 ### Turning features on and off
 Each feature panel has an enable checkbox as its title (Not in Bear Form text, Moonfire proc indicator, Ability
-trackers, Rage panel, Absorb shield, Heart of the Wild ready, Apex proc), and the minimap button has **Show minimap button** on the General page. A disabled feature is hidden
+trackers, Rage panel, Enrage panel, Absorb shield, Heart of the Wild ready, Apex proc), and the minimap button has **Show minimap button** on the General page. A disabled feature is hidden
 completely, including in the unlock/preview mode. Individual trackers can still be toggled on their own, and the trinket's voice and glow have their own checkboxes.
 
 ### Positioning
@@ -117,3 +141,4 @@ unlock/lock, **drag** moves it around the minimap. It can be hidden from the Gen
 | `/druidm glowdebug` | show why the trinket is or is not glowing |
 | `/druidm spy` | print your casts and new buffs (run again to stop) |
 | `/druidm cddebug` | show what the trinket / Heart of the Wild voice reminders see right now |
+| `/druidm enragedebug` | show what the client lets the enrage panel read on each enemy nameplate |

@@ -344,7 +344,7 @@ local PAGE_TOP = -72
 local function BuildGeneralPage()
 	local description = "Settings that are not tied to a single feature."
 	if not ns.IsDruid() then
-		description = description .. " Druid-only features (Bear Form text, Moonfire indicator, Rage panel, Heart of the Wild "
+		description = description .. " Druid-only features (Bear Form text, Moonfire indicator, Rage panel, Enrage panel, Heart of the Wild "
 			.. "and Apex reminders) are hidden on this character."
 	end
 	local page = Page("general", "General", description)
@@ -897,6 +897,76 @@ local function BuildRemindersPage()
 	apexText:SetJustifyH("LEFT")
 end
 
+-- Enrage panel page ----------------------------------------------------------
+
+local function BuildEnragePage()
+	local page = Page(
+		"enrage",
+		"Enrage panel",
+		"Lists the enemies that are enraged right now, so you know which one to cast Soothe on. Needs enemy nameplates turned on."
+	)
+	local p = Panel(page, "Show the enrage panel", function()
+		return ns.db.enrageEnabled
+	end, function(v)
+		ns.db.enrageEnabled = v
+	end)
+	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
+	p:SetHeight(350)
+	widgets.enrageEnabled = p.toggle
+	local c = p.content
+
+	widgets.enrageWidth = Slider(c, "Panel width", 0, 0, 160, 400, 1, function()
+		return ns.db.enrageWidth
+	end, function(v)
+		ns.db.enrageWidth = v
+	end)
+
+	widgets.enrageRows = Slider(c, "Mobs listed", 0, -56, 1, 6, 1, function()
+		return ns.db.enrageRows
+	end, function(v)
+		ns.db.enrageRows = v
+	end)
+
+	widgets.enrageMarkerSize = Slider(c, "Nameplate marker size", 0, -112, 24, 96, 1, function()
+		return ns.db.enrageMarkerSize
+	end, function(v)
+		ns.db.enrageMarkerSize = v
+	end)
+
+	widgets.enrageSay = Checkbox(c, "Say \"Soothe\" when a mob enrages", 0, -170, function()
+		return ns.db.enrageSay
+	end, function(v)
+		ns.db.enrageSay = v
+	end)
+	local test = ActionButton(c, "Test", 60, function()
+		SpeakOrReport("Soothe")
+	end)
+	test:SetPoint("TOPLEFT", 300, -172)
+
+	widgets.enrageMarker = Checkbox(c, "Mark the mob's nameplate", 0, -200, function()
+		return ns.db.enrageMarker
+	end, function(v)
+		ns.db.enrageMarker = v
+	end)
+
+	widgets.enrageStatus = Label(c, "", 0, -244, "GameFontHighlight")
+	widgets.enrageStatus:SetPoint("TOPRIGHT", 0, -244)
+	widgets.enrageStatus:SetJustifyH("LEFT")
+	widgets.enrageStatus.Refresh = function(self)
+		if ns.KnowsSoothe and ns.KnowsSoothe() then
+			self:SetText("|cff33ff99Soothe known|r - the panel appears while an enemy nameplate carries an enrage")
+		else
+			self:SetText("|cffffaa00Soothe not found in your spellbook|r - the panel stays hidden until you have it")
+		end
+	end
+
+	local hint = Label(c, "Run /druidm enragedebug in combat to see what the client lets the addon read on each nameplate.", 0, -276,
+		"GameFontHighlightSmall")
+	hint:SetPoint("TOPRIGHT", 0, -276)
+	hint:SetJustifyH("LEFT")
+end
+
 -- Main panel -----------------------------------------------------------------
 
 local function BuildMainPanel()
@@ -933,6 +1003,9 @@ local function BuildMainPanel()
 	if druid then
 		Nav("rage", "Rage panel", function()
 			return ns.db.rageEnabled
+		end)
+		Nav("enrage", "Enrage panel", function()
+			return ns.db.enrageEnabled
 		end)
 	end
 	Nav("absorb", "Absorb shield", function()
@@ -976,6 +1049,9 @@ local function BuildMainPanel()
 	end
 	BuildAbsorbPage()
 	BuildRemindersPage()
+	if druid then
+		BuildEnragePage()
+	end
 	SelectPage(currentPage)
 
 	TrackConfigVisibility(panel)
