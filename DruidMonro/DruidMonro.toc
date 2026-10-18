@@ -1,4 +1,4 @@
-## Interface: 120100
+## Interface: 120105
 ## Title: DruidMonro
 ## Notes: Druid helpers: a customizable "not in Bear Form" text and a Moonfire proc indicator with selectable glow.
 ## Author: mihailsgo
@@ -10,9 +10,11 @@
 Core.lua
 Display.lua
 Indicator.lua
-MoonfireCount.lua
 Tracker.lua
 Rage.lua
 Absorb.lua
+Voice.lua
+Reminders.lua
+TrinketGlow.lua
 Minimap.lua
 Config.lua

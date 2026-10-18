@@ -380,7 +380,7 @@ local function BuildBearPage()
 	end)
 	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
 	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
-	p:SetHeight(290)
+	p:SetHeight(320)
 	widgets.textEnabled = p.toggle
 	local c = p.content
 
@@ -423,13 +423,19 @@ local function BuildBearPage()
 	end, function(v)
 		ns.db.textCombatOnly = v
 	end)
+
+	widgets.textDungeonOnly = Checkbox(c, "Only show in dungeons", 0, -206, function()
+		return ns.db.textDungeonOnly
+	end, function(v)
+		ns.db.textDungeonOnly = v
+	end)
 end
 
 local function BuildIndicatorPage()
 	local page = Page(
 		"indicator",
 		"Moonfire proc indicator",
-		"Glows the Moonfire count icon when Moonfire procs. Size and position are set on the Moonfire count page."
+		"Shows an icon with a glow when Moonfire procs."
 	)
 	local p = Panel(page, "Show the indicator", function()
 		return ns.db.indicatorEnabled
@@ -438,7 +444,7 @@ local function BuildIndicatorPage()
 	end)
 	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
 	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
-	p:SetHeight(110)
+	p:SetHeight(180)
 	widgets.indEnabled = p.toggle
 	local c = p.content
 
@@ -450,42 +456,11 @@ local function BuildIndicatorPage()
 	end, function(item)
 		ns.db.glow = item.key
 	end)
-end
 
--- Moonfire count page --------------------------------------------------------
-
-local function BuildMoonCountPage()
-	local page = Page(
-		"mooncount",
-		"Moonfire count",
-		"Shows on how many of the mobs you are fighting your Moonfire is active, e.g. 3/5. Counts mobs that have a nameplate."
-	)
-	local p = Panel(page, "Show the counter", function()
-		return ns.db.moonCountEnabled
+	widgets.indSize = Slider(c, "Indicator size", 0, -60, 24, 200, 1, function()
+		return ns.db.indicatorSize
 	end, function(v)
-		ns.db.moonCountEnabled = v
-	end)
-	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
-	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
-	p:SetHeight(230)
-	widgets.moonCountEnabled = p.toggle
-	local c = p.content
-
-	widgets.moonCountSize = Slider(c, "Icon size", 0, 0, 24, 200, 1, function()
-		return ns.db.moonCountSize
-	end, function(v)
-		ns.db.moonCountSize = v
-	end)
-
-	widgets.moonCountFontSize = Slider(c, "Font size", 0, -56, 8, 96, 1, function()
-		return ns.db.moonCountFontSize
-	end, function(v)
-		ns.db.moonCountFontSize = v
-	end)
-
-	Label(c, "Text color (turns green when every mob has Moonfire)", 0, -112)
-	widgets.moonCountColor = ColorSwatch(c, 0, -132, function()
-		return ns.db.moonCountColor
+		ns.db.indicatorSize = v
 	end)
 end
 
@@ -741,7 +716,7 @@ local function BuildAbsorbPage()
 	local page = Page(
 		"absorb",
 		"Absorb shield",
-		"Shows a Power Word: Shield icon with your total absorb while Frenzied Regeneration is active. Absorbs from other sources are included in the number."
+		"Shows a Power Word: Shield icon with your total absorb (Frenzied Regeneration and any other absorbs) while you have one."
 	)
 	local p = Panel(page, "Show the absorb icon", function()
 		return ns.db.absorbEnabled
@@ -766,11 +741,142 @@ local function BuildAbsorbPage()
 		ns.db.absorbFontSize = v
 	end)
 
-	widgets.absorbAny = Checkbox(c, "Also show for absorbs from other sources", 0, -112, function()
-		return ns.db.absorbAny
+	widgets.absorbFrenziedOnly = Checkbox(c, "Only while Frenzied Regeneration is active", 0, -112, function()
+		return ns.db.absorbFrenziedOnly
 	end, function(v)
-		ns.db.absorbAny = v
+		ns.db.absorbFrenziedOnly = v
 	end)
+end
+
+-- Voice reminders page -------------------------------------------------------
+
+local function SpeakOrReport(text)
+	local ok, err = ns.Speak(text)
+	if not ok then
+		ns.Print("voice failed: " .. err)
+	end
+end
+
+local function VoiceItems()
+	local items = { { name = "Automatic" } }
+	for _, voice in ipairs(ns.GetVoices()) do
+		items[#items + 1] = { name = ns.ShortVoiceName(voice.name), voiceName = voice.name }
+	end
+	return items
+end
+
+local function TrinketItems()
+	local items = { { name = "None" } }
+	local found = false
+	for _, t in ipairs(ns.GetUseTrinkets()) do
+		local where = t.where == "bags" and " |cff888888(bags)|r" or ""
+		items[#items + 1] = { itemID = t.itemID, name = ("|T%s:16|t %s%s"):format(tostring(t.icon or 134400), t.name, where) }
+		found = found or t.itemID == ns.db.trinketItemID
+	end
+	-- Keep the current pick listed (and the dropdown labelled) after it left the character.
+	local id = ns.db.trinketItemID
+	if id and not found then
+		local name = C_Item.GetItemNameByID(id) or ("item " .. id)
+		items[#items + 1] = { itemID = id, name = name .. " |cff888888(not on character)|r" }
+	end
+	return items
+end
+
+local function BuildRemindersPage()
+	local page = Page(
+		"reminders",
+		"Voice reminders",
+		"Text-to-speech callouts when a cooldown is ready again or a proc happens."
+	)
+
+	local v = Panel(page, "Voice")
+	v:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	v:SetPoint("TOPRIGHT", 0, PAGE_TOP)
+	v:SetHeight(110)
+	widgets.voice = Dropdown(v.content, 0, 0, 220, VoiceItems, function(item)
+		return item.voiceName == ns.db.voiceName
+	end, function(item)
+		ns.db.voiceName = item.voiceName
+		SpeakOrReport("Trinket ready")
+	end)
+	local test = ActionButton(v.content, "Test", 80, function()
+		SpeakOrReport("Trinket ready")
+	end)
+	test:SetPoint("TOPLEFT", 240, 0)
+	local hint = Label(v.content, "Automatic uses the voice picked in MonroMDTTrack, otherwise the best installed one.", 0, -36,
+		"GameFontHighlightSmall")
+	hint:SetPoint("TOPRIGHT", 0, -36)
+	hint:SetJustifyH("LEFT")
+
+	local t = Panel(page, "Trinket")
+	t:SetPoint("TOPLEFT", v, "BOTTOMLEFT", 0, -12)
+	t:SetPoint("TOPRIGHT", v, "BOTTOMRIGHT", 0, -12)
+	t:SetHeight(165)
+	Label(t.content, "On-use trinket", 0, 0)
+	widgets.trinket = Dropdown(t.content, 0, -18, 300, TrinketItems, function(item)
+		return item.itemID == ns.db.trinketItemID
+	end, function(item)
+		ns.db.trinketItemID = item.itemID
+		widgets.trinketStatus:Refresh()
+	end)
+	widgets.trinketEnabled = Checkbox(t.content, "Say \"Trinket ready\"", 0, -50, function()
+		return ns.db.trinketEnabled
+	end, function(value)
+		ns.db.trinketEnabled = value
+		RefreshNav()
+	end)
+	widgets.trinketGlow = Checkbox(t.content, "Glow on action bars while ready", 220, -50, function()
+		return ns.db.trinketGlow
+	end, function(value)
+		ns.db.trinketGlow = value
+		RefreshNav()
+	end)
+	widgets.trinketStatus = Label(t.content, "", 0, -86, "GameFontHighlight")
+	widgets.trinketStatus.Refresh = function(self)
+		local id = ns.db.trinketItemID
+		if not id then
+			self:SetText("|cffff5555No trinket selected|r - only trinkets with a Use: effect are listed")
+		elseif C_Item.IsEquippedItem(id) then
+			self:SetText("|cff33ff99Equipped|r - the glow is previewed on its action button while this panel is open")
+		else
+			self:SetText("|cffffaa00Not equipped|r - no reminder or glow until you equip it")
+		end
+	end
+
+	-- Heart of the Wild and Apex share a row.
+	local h = Panel(page, "Heart of the Wild ready", function()
+		return ns.db.heartEnabled
+	end, function(value)
+		ns.db.heartEnabled = value
+	end)
+	h:SetPoint("TOPLEFT", t, "BOTTOMLEFT", 0, -12)
+	h:SetPoint("TOPRIGHT", t, "BOTTOM", -6, -12)
+	h:SetHeight(95)
+	widgets.heartEnabled = h.toggle
+	widgets.heartStatus = Label(h.content, "", 0, 0, "GameFontHighlight")
+	widgets.heartStatus:SetPoint("TOPRIGHT")
+	widgets.heartStatus:SetJustifyH("LEFT")
+	widgets.heartStatus.Refresh = function(self)
+		if ns.KnownHeartOfTheWild() then
+			self:SetText("|cff33ff99Talented|r - says \"Heart of the Wild ready\" when its cooldown ends")
+		else
+			self:SetText("|cffffaa00Not talented|r - no reminder until you take it")
+		end
+	end
+
+	local a = Panel(page, "Apex proc", function()
+		return ns.db.apexEnabled
+	end, function(value)
+		ns.db.apexEnabled = value
+	end)
+	a:SetPoint("TOPLEFT", t, "BOTTOM", 6, -12)
+	a:SetPoint("TOPRIGHT", t, "BOTTOMRIGHT", 0, -12)
+	a:SetHeight(95)
+	widgets.apexEnabled = a.toggle
+	local apexText = Label(a.content, "Says \"Apex\" when Wild Guardian awakens a spirit (Answered Calling).", 0, 0,
+		"GameFontHighlight")
+	apexText:SetPoint("TOPRIGHT")
+	apexText:SetJustifyH("LEFT")
 end
 
 -- Main panel -----------------------------------------------------------------
@@ -793,17 +899,18 @@ local function BuildMainPanel()
 	NavItem(nav, "indicator", "Moonfire indicator", -104, function()
 		return ns.db.indicatorEnabled
 	end)
-	NavItem(nav, "mooncount", "Moonfire count", -134, function()
-		return ns.db.moonCountEnabled
-	end)
-	NavItem(nav, "trackers", "Ability trackers", -164, function()
+	NavItem(nav, "trackers", "Ability trackers", -134, function()
 		return ns.db.trackersEnabled
 	end)
-	NavItem(nav, "rage", "Rage panel", -194, function()
+	NavItem(nav, "rage", "Rage panel", -164, function()
 		return ns.db.rageEnabled
 	end)
-	NavItem(nav, "absorb", "Absorb shield", -224, function()
+	NavItem(nav, "absorb", "Absorb shield", -194, function()
 		return ns.db.absorbEnabled
+	end)
+	NavItem(nav, "reminders", "Voice reminders", -224, function()
+		local db = ns.db
+		return db.trinketEnabled or db.trinketGlow or db.heartEnabled or db.apexEnabled
 	end)
 
 	local reset = ActionButton(nav, "Reset all", NAV_WIDTH, function()
@@ -831,10 +938,10 @@ local function BuildMainPanel()
 	BuildGeneralPage()
 	BuildBearPage()
 	BuildIndicatorPage()
-	BuildMoonCountPage()
 	BuildTrackerPage()
 	BuildRagePage()
 	BuildAbsorbPage()
+	BuildRemindersPage()
 	SelectPage(currentPage)
 
 	TrackConfigVisibility(panel)

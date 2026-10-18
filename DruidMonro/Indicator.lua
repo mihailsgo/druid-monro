@@ -1,11 +1,9 @@
 local ADDON_NAME, ns = ...
 
--- Moonfire proc detection and glow. There is no icon of its own: the glow is drawn on the
--- Moonfire count icon (MoonfireCount.lua), which hosts it.
-
 local MOONFIRE_SPELL = 8921
 local MOONFIRE_SPELLS = { [8921] = true, [164812] = true }
 local GALACTIC_GUARDIAN_AURA = 213708 -- Guardian: next Moonfire is free and empowered
+local FALLBACK_ICON = "Interface\\Icons\\Spell_Nature_StarFall"
 local PROC_ATLAS = "UI-HUD-ActionBar-Proc-Loop-Flipbook"
 
 ns.GLOW_OPTIONS = {
@@ -17,7 +15,7 @@ ns.GLOW_OPTIONS = {
 
 local PIXEL_DOTS = 16
 
-local frame -- the icon frame the glow is drawn on
+local frame, icon
 local pulseTex, pulseAnim
 local procTex, procAnim
 local dots = {}
@@ -29,11 +27,19 @@ local function HasProcAtlas()
 	return C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(PROC_ATLAS) ~= nil
 end
 
+-- Tests a value the client may hide; a hidden value counts as false.
+local function Truthy(v)
+	if issecretvalue and issecretvalue(v) then
+		return false
+	end
+	return v and true or false
+end
+
 local function CheckProc()
 	local active = false
 	if C_SpellActivationOverlay and C_SpellActivationOverlay.IsSpellOverlayed then
 		local ok, res = pcall(C_SpellActivationOverlay.IsSpellOverlayed, MOONFIRE_SPELL)
-		active = ok and res and true or false
+		active = ok and Truthy(res)
 	end
 	if not active and C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
 		local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, GALACTIC_GUARDIAN_AURA)
@@ -42,17 +48,13 @@ local function CheckProc()
 	procActive = active
 end
 
--- True while Moonfire is procced and the indicator is enabled (or the layout preview is on).
-function ns.IsProcShown()
-	if not ns.db.indicatorEnabled or not ns.IsDruid() then
-		return false
-	end
-	return procActive or ns.IsPreview()
+local function IsMoonfire(spellID)
+	return not (issecretvalue and issecretvalue(spellID)) and MOONFIRE_SPELLS[spellID] == true
 end
 
 local function PixelOnUpdate(_, elapsed)
 	pixelPhase = (pixelPhase + elapsed * 0.3) % 1
-	local s = frame:GetWidth()
+	local s = ns.db.indicatorSize
 	local perimeter = s * 4
 	for i, dot in ipairs(dots) do
 		local d = (((i - 1) / PIXEL_DOTS) + pixelPhase) % 1 * perimeter
@@ -96,12 +98,19 @@ local function StartGlow(kind)
 	end
 end
 
--- Sizes and starts/stops the glow on the host icon. Called whenever the icon is refreshed.
 function ns.ApplyIndicator()
 	if not frame then
 		return
 	end
-	local s = frame:GetWidth()
+	local db = ns.db
+	local s = db.indicatorSize
+	frame:SetSize(s, s)
+	ns.PlaceFrame(frame, "indX", "indY")
+	frame:EnableMouse(ns.unlocked)
+
+	local tex = C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(MOONFIRE_SPELL)
+	icon:SetTexture(tex or FALLBACK_ICON)
+
 	pulseTex:SetSize(s * 1.8, s * 1.8)
 	procTex:SetSize(s * 1.4, s * 1.4)
 	local t = math.max(2, math.floor(s * 0.06))
@@ -109,15 +118,15 @@ function ns.ApplyIndicator()
 		dot:SetSize(t, t)
 	end
 
+	local visible = ns.IsDruid() and db.indicatorEnabled and (procActive or ns.IsPreview())
+	frame:SetShown(visible and true or false)
+
 	-- Only restart the glow when it actually changes; UNIT_AURA calls this often.
 	local desired
-	if frame:IsShown() and ns.IsProcShown() then
-		desired = ns.db.glow
+	if visible then
+		desired = db.glow
 		if desired == "proc" and not HasProcAtlas() then
 			desired = "pulse" -- atlas missing on this client build
-		end
-		if desired == "none" then
-			desired = nil
 		end
 	end
 	if desired ~= activeGlow then
@@ -129,8 +138,14 @@ function ns.ApplyIndicator()
 	end
 end
 
-function ns.InitIndicator(host)
-	frame = host
+function ns.InitIndicator()
+	frame = CreateFrame("Frame", "DruidMonroIndicator", UIParent)
+	frame:SetFrameStrata("MEDIUM")
+	ns.MakeDraggable(frame, "indX", "indY")
+
+	icon = frame:CreateTexture(nil, "ARTWORK")
+	icon:SetAllPoints()
+	icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 
 	-- Pulse: pulsing additive action-button border.
 	pulseTex = frame:CreateTexture(nil, "OVERLAY")
@@ -175,17 +190,17 @@ function ns.InitIndicator(host)
 	events:RegisterUnitEvent("UNIT_AURA", "player")
 	events:SetScript("OnEvent", function(_, event, spellID)
 		if event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" then
-			if MOONFIRE_SPELLS[spellID] then
+			if IsMoonfire(spellID) then
 				procActive = true
 			end
 		elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE" then
-			if MOONFIRE_SPELLS[spellID] then
+			if IsMoonfire(spellID) then
 				procActive = false
 			end
 		else
 			CheckProc()
 		end
-		ns.ApplyMoonfireCount()
+		ns.ApplyIndicator()
 	end)
 
 	CheckProc()

@@ -5,22 +5,42 @@ local SHIELD_SPELL = 17 -- Power Word: Shield, only borrowed for its icon
 local FALLBACK_ICON = "Interface\\Icons\\Spell_Holy_PowerWordShield"
 local PREVIEW_TEXT = "315081"
 
-local frame, icon, text
+local frame, shield, text
 
--- True while the player carries the Frenzied Regeneration aura.
+local function IsSecret(v)
+	return issecretvalue ~= nil and issecretvalue(v)
+end
+
+-- True while the player carries the Frenzied Regeneration aura. Aura details can be hidden in instances.
 local function HasFrenzied()
 	local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, FRENZIED_REGENERATION)
 	return ok and aura ~= nil
 end
 
--- Returns the total absorb on the player, or nil when the client hides it.
-local function TotalAbsorb()
-	local ok, total = pcall(function()
-		local v = UnitGetTotalAbsorbs("player")
-		return v > 0 and v or 0 -- comparison fails if the client hides the value
+-- In Mythic+ and other restricted content the client hides the absorb value: it cannot be compared or formatted by
+-- us, but it can still be handed to widgets. So the icon is a StatusBar with range 0..1 that is full for any absorb and
+-- empty (invisible) for none, and the number is passed to the text as is.
+local function UpdateShield()
+	local total = UnitGetTotalAbsorbs("player")
+	if ns.IsPreview() then
+		shield:SetValue(1)
+		text:SetText(PREVIEW_TEXT)
+		return
+	end
+	shield:SetValue(total)
+	if not IsSecret(total) then
+		text:SetText(total > 0 and string.format("%d", total) or "")
+		return
+	end
+	local ok = pcall(function()
+		if C_StringUtil and C_StringUtil.TruncateWhenZero then
+			text:SetText(C_StringUtil.TruncateWhenZero(total)) -- empty string while there is no absorb
+		else
+			text:SetFormattedText("%d", total)
+		end
 	end)
-	if ok then
-		return total
+	if not ok then
+		text:SetText("")
 	end
 end
 
@@ -35,29 +55,7 @@ local function ShouldShow()
 	if not ns.IsDruid() then
 		return false
 	end
-	if HasFrenzied() then
-		return true
-	end
-	if db.absorbAny then
-		local total = TotalAbsorb()
-		return total ~= nil and total > 0
-	end
-	return false
-end
-
-local function UpdateText()
-	if ns.IsPreview() and not HasFrenzied() then
-		text:SetText(PREVIEW_TEXT)
-		return
-	end
-	-- The number is the final total, so absorbs from other sources are included.
-	-- Formatting fails if the client hides the value.
-	local ok = pcall(function()
-		text:SetFormattedText("%d", UnitGetTotalAbsorbs("player"))
-	end)
-	if not ok then
-		text:SetText("")
-	end
+	return not db.absorbFrenziedOnly or HasFrenzied()
 end
 
 -- Cheap pass for aura / absorb events.
@@ -68,7 +66,7 @@ local function Update()
 	local show = ShouldShow()
 	frame:SetShown(show)
 	if show then
-		UpdateText()
+		UpdateShield()
 	end
 end
 
@@ -82,9 +80,25 @@ function ns.ApplyAbsorb()
 	ns.PlaceFrame(frame, "absorbX", "absorbY")
 	frame:EnableMouse(ns.unlocked)
 	frame.unlockBg:SetShown(ns.unlocked)
-	icon:SetTexture(C_Spell.GetSpellTexture(SHIELD_SPELL) or FALLBACK_ICON)
+	shield:SetStatusBarTexture(C_Spell.GetSpellTexture(SHIELD_SPELL) or FALLBACK_ICON)
 	text:SetFont(ns.DEFAULT_FONT, db.absorbFontSize, "OUTLINE")
 	Update()
+end
+
+-- /druidm absorbdebug: shows what the client lets us read, to diagnose a missing icon.
+function ns.AbsorbDebug()
+	ns.Print("absorb debug (run while you have an absorb)")
+	local ok, v = pcall(UnitGetTotalAbsorbs, "player")
+	local secret = ok and IsSecret(v)
+	print(string.format("  UnitGetTotalAbsorbs: ok=%s type=%s secret=%s value=%s", tostring(ok), type(v), tostring(secret),
+		(ok and not secret) and tostring(v) or "?"))
+	local ok2, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, FRENZIED_REGENERATION)
+	print(string.format("  Frenzied Regeneration aura (%d): ok=%s found=%s", FRENZIED_REGENERATION, tostring(ok2),
+		tostring(ok2 and aura ~= nil)))
+	print(string.format("  TruncateWhenZero available=%s", tostring(C_StringUtil and C_StringUtil.TruncateWhenZero ~= nil)))
+	print(string.format("  enabled=%s frenziedOnly=%s druid=%s frame=%s shown=%s text='%s'", tostring(ns.db.absorbEnabled),
+		tostring(ns.db.absorbFrenziedOnly), tostring(ns.IsDruid()), tostring(frame ~= nil), tostring(frame and frame:IsShown()),
+		(text and not IsSecret(text:GetText())) and tostring(text:GetText()) or "?"))
 end
 
 function ns.InitAbsorb()
@@ -92,21 +106,29 @@ function ns.InitAbsorb()
 	frame:SetFrameStrata("MEDIUM")
 	ns.MakeDraggable(frame, "absorbX", "absorbY")
 
-	icon = frame:CreateTexture(nil, "ARTWORK")
-	icon:SetAllPoints()
-	icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-
 	frame.unlockBg = frame:CreateTexture(nil, "BACKGROUND")
 	frame.unlockBg:SetAllPoints()
 	frame.unlockBg:SetColorTexture(0.1, 0.8, 0.3, 0.35)
 
-	text = frame:CreateFontString(nil, "OVERLAY")
+	shield = CreateFrame("StatusBar", nil, frame)
+	shield:SetAllPoints()
+	shield:SetStatusBarTexture(FALLBACK_ICON)
+	shield:SetMinMaxValues(0, 1)
+	shield:SetValue(0)
+
+	-- The number sits on its own frame so it draws above the icon.
+	local textHolder = CreateFrame("Frame", nil, frame)
+	textHolder:SetAllPoints()
+	textHolder:SetFrameLevel(shield:GetFrameLevel() + 2)
+	text = textHolder:CreateFontString(nil, "OVERLAY")
 	text:SetPoint("CENTER")
-	text:SetFont(ns.DEFAULT_FONT, 16, "OUTLINE") -- a font must be set before SetText
+	text:SetFont(ns.DEFAULT_FONT, 20, "OUTLINE") -- a font must be set before SetText
 
 	local events = CreateFrame("Frame")
 	events:RegisterEvent("PLAYER_ENTERING_WORLD")
 	events:RegisterUnitEvent("UNIT_AURA", "player")
 	events:RegisterUnitEvent("UNIT_ABSORB_AMOUNT_CHANGED", "player")
 	events:SetScript("OnEvent", Update)
+	-- Safety net: absorb changes are not always announced while the client restricts data.
+	C_Timer.NewTicker(0.5, Update)
 end

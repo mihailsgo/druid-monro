@@ -82,6 +82,7 @@ local function ApplyText()
 	else
 		show = ns.IsDruid()
 				and (not db.textCombatOnly or UnitAffectingCombat("player"))
+				and (not db.textDungeonOnly or select(2, IsInInstance()) == "party")
 				and not InBearForm()
 				and strtrim(db.text) ~= ""
 	end
@@ -90,8 +91,8 @@ end
 
 function ns.Apply()
 	ApplyText()
-	if ns.ApplyMoonfireCount then
-		ns.ApplyMoonfireCount()
+	if ns.ApplyIndicator then
+		ns.ApplyIndicator()
 	end
 	if ns.ApplyTrackers then
 		ns.ApplyTrackers()
@@ -138,8 +139,8 @@ function ns.InitDisplay()
 	events:RegisterEvent("PLAYER_REGEN_ENABLED")
 	events:SetScript("OnEvent", ns.Apply)
 
-	if ns.InitMoonfireCount then
-		ns.InitMoonfireCount()
+	if ns.InitIndicator then
+		ns.InitIndicator()
 	end
 	if ns.InitTrackers then
 		ns.InitTrackers()
@@ -149,6 +150,12 @@ function ns.InitDisplay()
 	end
 	if ns.InitAbsorb then
 		ns.InitAbsorb()
+	end
+	if ns.InitReminders then
+		ns.InitReminders()
+	end
+	if ns.InitTrinketGlow then
+		ns.InitTrinketGlow()
 	end
 	if ns.InitMinimap then
 		ns.InitMinimap()

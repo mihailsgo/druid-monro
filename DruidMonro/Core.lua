@@ -6,6 +6,7 @@ ns.DEFAULT_FONT = "Fonts\\FRIZQT__.TTF"
 ns.defaults = {
 	textEnabled = true,
 	textCombatOnly = true, -- otherwise shown whenever not in Bear Form
+	textDungeonOnly = false, -- when set, shown only inside 5-player dungeons
 	text = "NOT IN BEAR FORM",
 	fontPath = ns.DEFAULT_FONT,
 	fontSize = 32,
@@ -14,15 +15,11 @@ ns.defaults = {
 	x = 0, -- offsets from the screen center
 	y = 150,
 
-	indicatorEnabled = true, -- Moonfire proc glow, drawn on the Moonfire count icon
+	indicatorEnabled = true,
+	indicatorSize = 64,
 	glow = "proc", -- none | pulse | pixel | proc
-
-	moonCountEnabled = true, -- "Moonfire on N of M combat mobs" counter
-	moonCountSize = 48,
-	moonCountFontSize = 20,
-	moonCountColor = { r = 1, g = 1, b = 1 },
-	moonCountX = 0,
-	moonCountY = 0,
+	indX = 0,
+	indY = 60,
 
 	trackersEnabled = true, -- master switch; each tracker also has its own `enabled`
 	trackers = {}, -- see ns.NewTracker in Tracker.lua
@@ -37,12 +34,20 @@ ns.defaults = {
 	rageX = 0,
 	rageY = -100,
 
-	absorbEnabled = true, -- Power Word: Shield icon with the total absorb on you while Frenzied Regeneration is active
-	absorbAny = false, -- also show it for absorbs from other sources
+	absorbEnabled = true, -- Power Word: Shield icon with the total absorb on you, shown while you have any absorb
+	absorbFrenziedOnly = false, -- only while Frenzied Regeneration is active
 	absorbSize = 64,
 	absorbFontSize = 20,
 	absorbX = -120,
 	absorbY = 0,
+
+	-- Voice reminders (Reminders.lua / Voice.lua); voiceName is unset for "Automatic"
+	trinketEnabled = true, -- "Trinket ready" when the selected on-use trinket comes off cooldown
+	trinketItemID = nil,
+	trinketGlow = true, -- glow the trinket on the default action bars while it can be used
+	heartEnabled = true, -- "Heart of the Wild ready"
+	apexEnabled = true, -- "Apex" when Wild Guardian's Answered Calling procs
+	cooldownMemory = {}, -- "item:<id>" / "spell:<id>" -> longest cooldown seen, used when the client hides cooldowns
 
 	minimap = { hide = false, angle = 200 }, -- minimap button; angle in degrees around the minimap
 }
@@ -69,6 +74,14 @@ eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:SetScript("OnEvent", function(self, event, arg1)
 	if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
 		DruidMonroDB = DruidMonroDB or {}
+		-- The Moonfire count feature was removed; its icon position and size now belong to the proc indicator.
+		local old = DruidMonroDB
+		if old.moonCountX ~= nil then
+			old.indX, old.indY, old.indicatorSize = old.moonCountX, old.moonCountY, old.moonCountSize
+		end
+		for _, k in ipairs({ "moonCountEnabled", "moonCountSize", "moonCountFontSize", "moonCountColor", "moonCountX", "moonCountY" }) do
+			old[k] = nil
+		end
 		ApplyDefaults(DruidMonroDB, ns.defaults)
 		ns.db = DruidMonroDB
 		if ns.InitDisplay then
@@ -113,8 +126,8 @@ SlashCmdList["DRUIDMONRO"] = function(msg)
 		ns.Apply()
 		ns.RefreshConfig()
 		ns.Print("minimap button " .. (ns.db.minimap.hide and "hidden" or "shown"))
-	elseif cmd == "moondebug" then
-		ns.MoonfireDebug()
+	elseif cmd == "absorbdebug" then
+		ns.AbsorbDebug()
 	elseif cmd == "reset" then
 		ns.ResetAll()
 	else
