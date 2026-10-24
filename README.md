@@ -72,6 +72,12 @@ Cooldowns are followed exactly like the ability trackers do (the addon's own tim
 cooldowns in combat), and an ability can be in both lists. `/druidm glowdebug` lists, per ability, its state and which
 buttons hold it.
 
+**Death Knights** get one built-in rule on this page, **Heart Strike: glow while Death and Decay is on you**: Heart Strike's
+buttons glow while you have the Death and Decay buff (spell 188290, "Heart Strike will hit up to 5 targets") and Heart Strike is
+usable (rune or runic power available). If the client will not show the buff in combat, the addon falls back to a 10 second timer
+started by your own Death and Decay cast, so it can stay lit for a moment after you step out of it. `/druidm glowdebug` shows
+which of the two it is using.
+
 ### 5. Rage panel
 A rage bar shown while you are in Bear Form.
 
@@ -196,4 +202,5 @@ unlock/lock, **drag** moves it around the minimap. It can be hidden from the Gen
 | `/druidm cddebug` | show what the trinket / Heart of the Wild voice reminders see right now |
 | `/druidm trackerdebug` | show what the client reports for each ability tracker and what the addon makes of it |
 | `/druidm enragedebug` | show what the client lets the enrage panel read on each enemy nameplate |
+| `/druidm rpdebug` | show what the client reports for the runic power bar and its glow |
 | `/druidm enragelog [clear\|on\|off]` | the enrage panel's combat diagnostics, saved on `/reload` |

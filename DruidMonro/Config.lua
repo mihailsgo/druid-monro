@@ -791,8 +791,19 @@ local function BuildGlowPage()
 		status:SetText("")
 	end)
 
+	local listTop = -56
+	if ns.IsDeathKnight() then
+		widgets.dkHeartStrikeDecay = Checkbox(c, "Heart Strike: glow while Death and Decay is on you (hits up to 5 targets)", 0, -56,
+			function()
+				return ns.db.dkHeartStrikeDecay
+			end, function(v)
+				ns.db.dkHeartStrikeDecay = v
+			end)
+		listTop = -92
+	end
+
 	local scroll = CreateFrame("ScrollFrame", nil, c, "UIPanelScrollFrameTemplate")
-	scroll:SetPoint("TOPLEFT", 0, -56)
+	scroll:SetPoint("TOPLEFT", 0, listTop)
 	scroll:SetPoint("BOTTOMRIGHT", -26, 0)
 	glowScrollChild = CreateFrame("Frame", nil, scroll)
 	glowScrollChild:SetSize(1, 1)
@@ -801,7 +812,7 @@ local function BuildGlowPage()
 		glowScrollChild:SetWidth(width)
 	end)
 
-	glowEmptyHint = Label(c, "No abilities yet - type a spell above and press Enter.", 0, -70, "GameFontHighlight")
+	glowEmptyHint = Label(c, "No abilities yet - type a spell above and press Enter.", 0, listTop - 14, "GameFontHighlight")
 
 	-- The state of each ability changes as cooldowns end, so keep the status column current while the page is showing.
 	local elapsed = 0

@@ -4,18 +4,25 @@ local RUNIC_POWER = Enum.PowerType.RunicPower
 
 local frame, bar, text, split
 local glow, glowAnim
-local glowActive = false
+local glowBars = {}
 
-local function SetGlow(on)
-	if on == glowActive then
+-- The glow is four thin status bars around the panel whose range is just below the threshold up to the threshold:
+-- they fill (and so show) exactly when runic power is at or above it. The bar's own setters accept values the client
+-- hides in combat, so this never has to read or compare the number.
+local function UpdateGlow(cur)
+	local db = ns.db
+	if not db.rpGlow then
+		glow:Hide()
 		return
 	end
-	glowActive = on
-	glow:SetShown(on)
-	if on then
+	glow:Show()
+	if not glowAnim:IsPlaying() then
 		glowAnim:Play()
-	else
-		glowAnim:Stop()
+	end
+	local thr = db.rpThreshold
+	for _, g in ipairs(glowBars) do
+		g:SetMinMaxValues(thr - 0.5, thr)
+		g:SetValue(ns.IsPreview() and thr or cur)
 	end
 end
 
@@ -36,21 +43,12 @@ end
 -- Cheap pass for power events: only the bar value, text, glow and split line change.
 local function UpdateRP()
 	if not frame or not frame:IsShown() then
-		SetGlow(false)
 		return
 	end
 	local db = ns.db
 	local max = UnitPowerMax("player", RUNIC_POWER)
 	local cur = UnitPower("player", RUNIC_POWER)
-	if db.rpGlow then
-		-- Comparison fails if the client hides the values; treat that as "below the threshold".
-		local ok, high = pcall(function()
-			return cur >= db.rpThreshold
-		end)
-		SetGlow((ns.IsPreview() or (ok and high)) and true or false)
-	else
-		SetGlow(false)
-	end
+	UpdateGlow(cur)
 	PlaceSplit(max)
 	-- StatusBar setters accept values the client hides, so no arithmetic on them here.
 	bar:SetMinMaxValues(0, max)
@@ -98,6 +96,26 @@ function ns.ApplyRunicPower()
 	UpdateRP()
 end
 
+function ns.RunicPowerDebug()
+	if not frame then
+		ns.Print("runic power bar: only created on a Death Knight")
+		return
+	end
+	local cur = UnitPower("player", RUNIC_POWER)
+	local max = UnitPowerMax("player", RUNIC_POWER)
+	local secret = issecretvalue ~= nil and issecretvalue(cur)
+	local ok, high = pcall(function()
+		return cur >= ns.db.rpThreshold
+	end)
+	ns.Print(("runic power bar: shown=%s glowOn=%s glowShown=%s threshold=%s value secret=%s, readable compare=%s%s"):format(
+		tostring(frame:IsShown()), tostring(ns.db.rpGlow), tostring(glow:IsShown()), tostring(ns.db.rpThreshold),
+		tostring(secret), tostring(ok), ok and (" (at/above: " .. tostring(high) .. ")") or ""))
+	for i, g in ipairs(glowBars) do
+		local lo, hi = g:GetMinMaxValues()
+		print(("  glow bar %d: min=%s max=%s shown=%s"):format(i, tostring(lo), tostring(hi), tostring(g:IsShown())))
+	end
+end
+
 function ns.InitRunicPower()
 	frame = CreateFrame("Frame", "DruidMonroRunicPower", UIParent)
 	frame:SetFrameStrata("MEDIUM")
@@ -130,23 +148,27 @@ function ns.InitRunicPower()
 	text:SetPoint("CENTER")
 	text:SetFont(ns.DEFAULT_FONT, 14, "OUTLINE") -- a font must be set before SetText
 
-	-- Glow at or above the threshold: a pulsing frame just outside the panel.
+	-- Glow at or above the threshold: a pulsing frame just outside the panel (see UpdateGlow).
 	glow = CreateFrame("Frame", nil, frame)
 	glow:SetAllPoints()
 	glow:SetFrameLevel(bar:GetFrameLevel() + 2)
 	glow:Hide()
 	local function Edge(p1, x1, y1, p2, x2, y2, w, h)
-		local t = glow:CreateTexture(nil, "OVERLAY")
-		t:SetColorTexture(0.3, 0.85, 1, 1)
-		t:SetBlendMode("ADD")
-		t:SetPoint(p1, frame, p1, x1, y1)
-		t:SetPoint(p2, frame, p2, x2, y2)
+		local g = CreateFrame("StatusBar", nil, glow)
+		g:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+		g:SetStatusBarColor(0.3, 0.85, 1, 1)
+		g:GetStatusBarTexture():SetBlendMode("ADD")
+		g:SetMinMaxValues(0, 1)
+		g:SetValue(0)
+		g:SetPoint(p1, frame, p1, x1, y1)
+		g:SetPoint(p2, frame, p2, x2, y2)
 		if w then
-			t:SetWidth(w)
+			g:SetWidth(w)
 		end
 		if h then
-			t:SetHeight(h)
+			g:SetHeight(h)
 		end
+		glowBars[#glowBars + 1] = g
 	end
 	Edge("TOPLEFT", -3, 3, "TOPRIGHT", 3, 3, nil, 3)
 	Edge("BOTTOMLEFT", -3, -3, "BOTTOMRIGHT", 3, -3, nil, 3)

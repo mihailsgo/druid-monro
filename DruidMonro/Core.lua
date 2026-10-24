@@ -70,6 +70,7 @@ ns.defaults = {
 	trinketGlow = true, -- glow the trinket on the default action bars while it can be used
 	glowEnabled = true, -- master switch for the Glow page: abilities that glow on the action bars while they can be used
 	glowSpells = {}, -- class token -> { { spellID, enabled }, ... }, see AbilityGlow.lua
+	dkHeartStrikeDecay = true, -- Death Knight: glow Heart Strike on the action bars while the Death and Decay buff is on you
 	heartEnabled = true, -- "Heart of the Wild ready"
 	apexEnabled = true, -- "Apex" when Wild Guardian's Answered Calling procs
 	cooldownMemory = {}, -- "item:<id>" / "spell:<id>" -> longest cooldown seen, used when the client hides cooldowns
@@ -130,6 +131,7 @@ function ns.PrintHelp()
 	print("  /druidm cddebug - show what the trinket / Heart of the Wild voice reminders see right now")
 	print("  /druidm trackerdebug - show what the client reports for each ability tracker and what the addon makes of it")
 	print("  /druidm enragedebug - show what the client lets the enrage panel read on each enemy nameplate")
+	print("  /druidm rpdebug - show what the client reports for the runic power bar and its glow")
 	print("  /druidm enragelog [clear|on|off] - the enrage panel notes what the client returns in combat; saved on /reload")
 end
 
@@ -169,6 +171,8 @@ SlashCmdList["DRUIDMONRO"] = function(msg)
 		ns.TrackerDebug()
 	elseif cmd == "enragedebug" then
 		ns.EnrageDebug()
+	elseif cmd == "rpdebug" then
+		ns.RunicPowerDebug()
 	elseif cmd == "enragelog" or cmd:sub(1, 10) == "enragelog " then
 		ns.EnrageLogCommand(strtrim(cmd:sub(11)))
 	elseif cmd == "reset" then

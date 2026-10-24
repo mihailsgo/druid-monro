@@ -281,6 +281,12 @@ function ns.GlowDebug()
 	print("  buttons scanned: " .. (#parts > 0 and table.concat(parts, ", ") or "none"))
 	print("  buttons with the trinket: " .. (#matches > 0 and table.concat(matches, ", ") or "none found"))
 
+	if ns.IsDeathKnight() then
+		local inDecay, source = ns.InDeathAndDecay()
+		print(("  Heart Strike in Death and Decay: %s; in Death and Decay: %s (%s)"):format(ns.db.dkHeartStrikeDecay and "on" or "off",
+			inDecay and "yes" or "no", source))
+	end
+
 	local list = ns.GlowList()
 	print(("  ability glow: %s, %d abilities"):format(ns.db.glowEnabled and "on" or "off", #list))
 	for i, entry in ipairs(list) do
