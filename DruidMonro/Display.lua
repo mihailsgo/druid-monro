@@ -11,6 +11,10 @@ function ns.IsDruid()
 	return select(2, UnitClass("player")) == "DRUID"
 end
 
+function ns.IsDeathKnight()
+	return select(2, UnitClass("player")) == "DEATHKNIGHT"
+end
+
 -- True while the user is positioning or styling: elements show regardless of game state.
 function ns.IsPreview()
 	return ns.unlocked or ns.configOpen
@@ -99,11 +103,17 @@ function ns.Apply()
 	if ns.ApplyRage then
 		ns.ApplyRage()
 	end
+	if ns.ApplyRunicPower then
+		ns.ApplyRunicPower()
+	end
 	if ns.ApplyAbsorb then
 		ns.ApplyAbsorb()
 	end
 	if ns.ApplyEnrage then
 		ns.ApplyEnrage()
+	end
+	if ns.UpdateGlows then
+		ns.UpdateGlows()
 	end
 	if ns.ApplyMinimap then
 		ns.ApplyMinimap()
@@ -157,6 +167,9 @@ function ns.InitDisplay()
 	end
 	if ns.IsDruid() and ns.InitEnrage then
 		ns.InitEnrage()
+	end
+	if ns.IsDeathKnight() and ns.InitRunicPower then
+		ns.InitRunicPower()
 	end
 	if ns.InitAbsorb then
 		ns.InitAbsorb()

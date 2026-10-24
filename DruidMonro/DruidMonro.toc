@@ -1,6 +1,6 @@
 ## Interface: 120105
 ## Title: DruidMonro
-## Notes: Druid helpers (Bear Form text, Moonfire proc indicator, rage panel, enrage/Soothe panel) plus class-independent ability trackers, absorb icon and trinket voice/glow.
+## Notes: Druid helpers (Bear Form text, Moonfire proc indicator, rage panel, enrage/Soothe panel) plus class-independent ability trackers, ability glow on action bars, absorb icon and trinket voice/glow.
 ## Author: mihailsgo
 ## Version: 0.1.0
 ## SavedVariables: DruidMonroDB
@@ -11,7 +11,9 @@ Core.lua
 Display.lua
 Indicator.lua
 Tracker.lua
+AbilityGlow.lua
 Rage.lua
+RunicPower.lua
 Enrage.lua
 Absorb.lua
 Voice.lua

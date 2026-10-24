@@ -664,6 +664,164 @@ local function BuildTrackerPage()
 	remove:SetPoint("BOTTOMLEFT", 0, 0)
 end
 
+-- Ability glow page ----------------------------------------------------------
+
+local GLOW_ROW_HEIGHT = 30
+local glowRows = {}
+local glowScrollChild, glowEmptyHint
+
+local GLOW_STATUS = {
+	ready = "|cff33ff99ready - glowing|r",
+	cooldown = "|cff999999on cooldown|r",
+	unknown = "|cffffaa00not known|r",
+}
+
+local function GlowRowStatus(row, entry)
+	row.status:SetText(entry.enabled and GLOW_STATUS[ns.SpellState(entry.spellID)] or "|cff999999off|r")
+end
+
+local function GetGlowRow(i)
+	local row = glowRows[i]
+	if row then
+		return row
+	end
+	row = CreateFrame("Frame", nil, glowScrollChild)
+	row:SetHeight(GLOW_ROW_HEIGHT)
+	row:SetPoint("TOPLEFT", 0, -(i - 1) * GLOW_ROW_HEIGHT)
+	row:SetPoint("TOPRIGHT", 0, -(i - 1) * GLOW_ROW_HEIGHT)
+	row.icon = row:CreateTexture(nil, "ARTWORK")
+	row.icon:SetSize(24, 24)
+	row.icon:SetPoint("LEFT", 4, 0)
+	row.enabled = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+	row.enabled:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
+	row.enabled:SetScript("OnClick", function(self)
+		local entry = ns.GlowList()[row.index]
+		if entry then
+			entry.enabled = self:GetChecked() and true or false
+			GlowRowStatus(row, entry)
+			ns.Apply()
+		end
+	end)
+	row.remove = ActionButton(row, "Remove", 70, function()
+		local list = ns.GlowList()
+		if list[row.index] then
+			table.remove(list, row.index)
+			ns.Apply()
+			ns.RefreshConfig()
+		end
+	end)
+	row.remove:SetPoint("RIGHT", -4, 0)
+	row.status = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	row.status:SetPoint("RIGHT", row.remove, "LEFT", -10, 0)
+	row.status:SetJustifyH("RIGHT")
+	row.name = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	row.name:SetPoint("LEFT", row.enabled, "RIGHT", 2, 0)
+	row.name:SetPoint("RIGHT", row.status, "LEFT", -8, 0)
+	row.name:SetJustifyH("LEFT")
+	row.name:SetWordWrap(false)
+	glowRows[i] = row
+	return row
+end
+
+local function RefreshGlowList()
+	if not glowScrollChild then
+		return
+	end
+	local list = ns.GlowList()
+	for i, entry in ipairs(list) do
+		local row = GetGlowRow(i)
+		row.index = i
+		row.icon:SetTexture(C_Spell.GetSpellTexture(entry.spellID) or 134400)
+		row.name:SetText(C_Spell.GetSpellName(entry.spellID) or tostring(entry.spellID))
+		row.enabled:SetChecked(entry.enabled)
+		GlowRowStatus(row, entry)
+		row:Show()
+	end
+	for i = #list + 1, #glowRows do
+		glowRows[i]:Hide()
+	end
+	glowScrollChild:SetHeight(math.max(1, #list * GLOW_ROW_HEIGHT))
+	glowEmptyHint:SetShown(#list == 0)
+end
+
+local function BuildGlowPage()
+	local className = UnitClass("player")
+	local page = Page(
+		"glow",
+		"Ability glow",
+		("Add as many %s abilities as you like: their action-bar buttons glow while the ability can be used and stop when it "
+			.. "is on cooldown or out of charges."):format(className)
+	)
+	local p = Panel(page, "Glow abilities", function()
+		return ns.db.glowEnabled
+	end, function(v)
+		ns.db.glowEnabled = v
+	end)
+	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	p:SetPoint("BOTTOMRIGHT", 0, 0)
+	widgets.glowEnabled = p.toggle
+	local c = p.content
+
+	Label(c, "Add an ability (name or spell ID)", 0, 0)
+	local status = c:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	status:SetPoint("TOPLEFT", 270, -22)
+	status:SetPoint("TOPRIGHT", 0, -22)
+	status:SetJustifyH("LEFT")
+	local add
+	add = TextBox(c, 8, -18, 250, 60, function(input)
+		if strtrim(input) == "" then
+			return
+		end
+		local id, problem = ns.AddGlowSpell(input)
+		if not id then
+			status:SetText("|cffff5555Spell not found|r - use the exact name of a spell you know, or its ID")
+			return
+		end
+		add:SetText("")
+		if problem == "duplicate" then
+			status:SetText("|cffffaa00Already in the list|r")
+		else
+			status:SetText(("|cff33ff99Added|r |T%s:16|t %s"):format(tostring(C_Spell.GetSpellTexture(id) or 134400),
+				C_Spell.GetSpellName(id) or id))
+		end
+		ns.Apply()
+		ns.RefreshConfig()
+	end)
+	add:SetScript("OnEditFocusGained", function()
+		status:SetText("")
+	end)
+
+	local scroll = CreateFrame("ScrollFrame", nil, c, "UIPanelScrollFrameTemplate")
+	scroll:SetPoint("TOPLEFT", 0, -56)
+	scroll:SetPoint("BOTTOMRIGHT", -26, 0)
+	glowScrollChild = CreateFrame("Frame", nil, scroll)
+	glowScrollChild:SetSize(1, 1)
+	scroll:SetScrollChild(glowScrollChild)
+	scroll:SetScript("OnSizeChanged", function(_, width)
+		glowScrollChild:SetWidth(width)
+	end)
+
+	glowEmptyHint = Label(c, "No abilities yet - type a spell above and press Enter.", 0, -70, "GameFontHighlight")
+
+	-- The state of each ability changes as cooldowns end, so keep the status column current while the page is showing.
+	local elapsed = 0
+	page:SetScript("OnUpdate", function(_, dt)
+		elapsed = elapsed + dt
+		if elapsed < 0.5 then
+			return
+		end
+		elapsed = 0
+		local list = ns.GlowList()
+		for i, entry in ipairs(list) do
+			if glowRows[i] then
+				GlowRowStatus(glowRows[i], entry)
+			end
+		end
+	end)
+
+	widgets.glowList = { Refresh = RefreshGlowList }
+end
+
 -- Rage panel page ------------------------------------------------------------
 
 local function BuildRagePage()
@@ -712,6 +870,67 @@ local function BuildRagePage()
 		return ns.db.rageGlow
 	end, function(v)
 		ns.db.rageGlow = v
+	end)
+end
+
+-- Runic power page (Death Knight) ----------------------------------------------
+
+local function BuildRunicPowerPage()
+	local page = Page(
+		"runic",
+		"Runic power bar",
+		"A bar showing your runic power, with a split line at the threshold. The bar glows once runic power reaches it."
+	)
+	local p = Panel(page, "Show the runic power bar", function()
+		return ns.db.rpEnabled
+	end, function(v)
+		ns.db.rpEnabled = v
+	end)
+	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
+	p:SetHeight(380)
+	widgets.rpEnabled = p.toggle
+	local c = p.content
+
+	widgets.rpWidth = Slider(c, "Width", 0, 0, 50, 600, 1, function()
+		return ns.db.rpWidth
+	end, function(v)
+		ns.db.rpWidth = v
+	end)
+
+	widgets.rpHeight = Slider(c, "Height", 0, -56, 8, 100, 1, function()
+		return ns.db.rpHeight
+	end, function(v)
+		ns.db.rpHeight = v
+	end)
+
+	widgets.rpThreshold = Slider(c, "Split line and glow at", 0, -112, 10, 100, 1, function()
+		return ns.db.rpThreshold
+	end, function(v)
+		ns.db.rpThreshold = v
+	end)
+
+	Label(c, "Color", 0, -168)
+	widgets.rpColor = ColorSwatch(c, 0, -188, function()
+		return ns.db.rpColor
+	end)
+
+	widgets.rpShowText = Checkbox(c, "Show runic power number", 0, -226, function()
+		return ns.db.rpShowText
+	end, function(v)
+		ns.db.rpShowText = v
+	end)
+
+	widgets.rpCombatOnly = Checkbox(c, "Only show in combat", 0, -256, function()
+		return ns.db.rpCombatOnly
+	end, function(v)
+		ns.db.rpCombatOnly = v
+	end)
+
+	widgets.rpGlow = Checkbox(c, "Glow when at or above the split line", 0, -286, function()
+		return ns.db.rpGlow
+	end, function(v)
+		ns.db.rpGlow = v
 	end)
 end
 
@@ -912,7 +1131,7 @@ local function BuildEnragePage()
 	end)
 	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
 	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
-	p:SetHeight(350)
+	p:SetHeight(390)
 	widgets.enrageEnabled = p.toggle
 	local c = p.content
 
@@ -932,6 +1151,26 @@ local function BuildEnragePage()
 		return ns.db.enrageMarkerSize
 	end, function(v)
 		ns.db.enrageMarkerSize = v
+	end)
+
+	-- Beside the marker size, so a marker that collides with your raid markers is a one-click fix.
+	Label(c, "Marker position", 300, -112)
+	widgets.enrageMarkerSide = Dropdown(c, 300, -130, 190, function()
+		return ns.MARKER_SIDES
+	end, function(item)
+		return ns.db.enrageMarkerSide == item.key
+	end, function(item)
+		ns.db.enrageMarkerSide = item.key
+	end)
+
+	-- What the marker shows: only buffs you can Soothe, or any dispellable buff (the fallback if "mine" shows nothing).
+	Label(c, "Marker shows", 300, -56)
+	widgets.enrageMarkerFilter = Dropdown(c, 300, -74, 190, function()
+		return ns.MARKER_FILTERS
+	end, function(item)
+		return ns.db.enrageMarkerFilter == item.key
+	end, function(item)
+		ns.db.enrageMarkerFilter = item.key
 	end)
 
 	widgets.enrageSay = Checkbox(c, "Say \"Soothe\" when a mob enrages", 0, -170, function()
@@ -961,9 +1200,11 @@ local function BuildEnragePage()
 		end
 	end
 
-	local hint = Label(c, "Run /druidm enragedebug in combat to see what the client lets the addon read on each nameplate.", 0, -276,
+	local hint = Label(c, "The marker is drawn by the game itself, so it works in combat inside dungeons. The list and the voice "
+		.. "need the addon to read the mob: they always work out of combat and in the open world, and in dungeon combat only "
+		.. "when the marker's size can be read. /druidm enragedebug shows what each nameplate reports.", 0, -272,
 		"GameFontHighlightSmall")
-	hint:SetPoint("TOPRIGHT", 0, -276)
+	hint:SetPoint("TOPRIGHT", 0, -272)
 	hint:SetJustifyH("LEFT")
 end
 
@@ -1000,12 +1241,20 @@ local function BuildMainPanel()
 	Nav("trackers", "Ability trackers", function()
 		return ns.db.trackersEnabled
 	end)
+	Nav("glow", "Ability glow", function()
+		return ns.db.glowEnabled
+	end)
 	if druid then
 		Nav("rage", "Rage panel", function()
 			return ns.db.rageEnabled
 		end)
 		Nav("enrage", "Enrage panel", function()
 			return ns.db.enrageEnabled
+		end)
+	end
+	if ns.IsDeathKnight() then
+		Nav("runic", "Runic power bar", function()
+			return ns.db.rpEnabled
 		end)
 	end
 	Nav("absorb", "Absorb shield", function()
@@ -1044,8 +1293,12 @@ local function BuildMainPanel()
 		BuildIndicatorPage()
 	end
 	BuildTrackerPage()
+	BuildGlowPage()
 	if druid then
 		BuildRagePage()
+	end
+	if ns.IsDeathKnight() then
+		BuildRunicPowerPage()
 	end
 	BuildAbsorbPage()
 	BuildRemindersPage()

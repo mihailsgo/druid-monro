@@ -34,10 +34,24 @@ ns.defaults = {
 	rageX = 0,
 	rageY = -100,
 
+	rpEnabled = true, -- Death Knight only: runic power bar with a split line at rpThreshold
+	rpWidth = 200,
+	rpHeight = 20,
+	rpColor = { r = 0, g = 0.82, b = 1 },
+	rpShowText = true,
+	rpThreshold = 75, -- split line position, and the value from which the bar glows
+	rpGlow = true, -- pulsing border while runic power is at or above the threshold
+	rpCombatOnly = false,
+	rpX = 0,
+	rpY = -100,
+
 	enrageEnabled = true, -- Druid only: panel listing the mobs that are enraged right now, i.e. where to cast Soothe
 	enrageSay = true, -- say "Soothe" when a mob enrages
 	enrageMarker = true, -- Soothe icon over the enraged mob's nameplate
 	enrageMarkerSize = 40,
+	enrageMarkerSide = "right", -- right | left | above | below the nameplate, clear of the raid markers
+	enrageRecord = true, -- temporarily note what the client returns in combat into DruidMonroDB.enrageLog (see /druidm enragelog)
+	enrageMarkerFilter = "mine", -- mine: only enrages your class can remove | any: every dispellable buff (Magic too)
 	enrageWidth = 230,
 	enrageRows = 4, -- mobs listed at once
 	enrageX = 260,
@@ -54,6 +68,8 @@ ns.defaults = {
 	trinketEnabled = true, -- "Trinket ready" when the selected on-use trinket comes off cooldown
 	trinketItemID = nil,
 	trinketGlow = true, -- glow the trinket on the default action bars while it can be used
+	glowEnabled = true, -- master switch for the Glow page: abilities that glow on the action bars while they can be used
+	glowSpells = {}, -- class token -> { { spellID, enabled }, ... }, see AbilityGlow.lua
 	heartEnabled = true, -- "Heart of the Wild ready"
 	apexEnabled = true, -- "Apex" when Wild Guardian's Answered Calling procs
 	cooldownMemory = {}, -- "item:<id>" / "spell:<id>" -> longest cooldown seen, used when the client hides cooldowns
@@ -109,10 +125,12 @@ function ns.PrintHelp()
 	print("  /druidm unlock - show the text and Moonfire indicator and unlock them for dragging (run again to lock)")
 	print("  /druidm minimap - show or hide the minimap button")
 	print("  /druidm reset - reset all settings and positions to defaults")
-	print("  /druidm glowdebug - show why the trinket is or is not glowing")
+	print("  /druidm glowdebug - show why the trinket and the Glow page's abilities are or are not glowing")
 	print("  /druidm spy - print your casts and new buffs (to find proc spell IDs); run again to stop")
 	print("  /druidm cddebug - show what the trinket / Heart of the Wild voice reminders see right now")
+	print("  /druidm trackerdebug - show what the client reports for each ability tracker and what the addon makes of it")
 	print("  /druidm enragedebug - show what the client lets the enrage panel read on each enemy nameplate")
+	print("  /druidm enragelog [clear|on|off] - the enrage panel notes what the client returns in combat; saved on /reload")
 end
 
 function ns.ResetAll()
@@ -147,8 +165,12 @@ SlashCmdList["DRUIDMONRO"] = function(msg)
 		ns.ToggleSpy()
 	elseif cmd == "cddebug" then
 		ns.CooldownDebug()
+	elseif cmd == "trackerdebug" then
+		ns.TrackerDebug()
 	elseif cmd == "enragedebug" then
 		ns.EnrageDebug()
+	elseif cmd == "enragelog" or cmd:sub(1, 10) == "enragelog " then
+		ns.EnrageLogCommand(strtrim(cmd:sub(11)))
 	elseif cmd == "reset" then
 		ns.ResetAll()
 	else
