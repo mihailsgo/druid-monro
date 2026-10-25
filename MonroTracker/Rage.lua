@@ -88,7 +88,7 @@ function ns.ApplyRage()
 end
 
 function ns.InitRage()
-	frame = CreateFrame("Frame", "DruidMonroRage", UIParent)
+	frame = CreateFrame("Frame", "MonroTrackerRage", UIParent)
 	frame:SetFrameStrata("MEDIUM")
 	ns.MakeDraggable(frame, "rageX", "rageY")
 

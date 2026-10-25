@@ -6,10 +6,22 @@ local frame, bar, text, split
 local glow, glowAnim
 local glowBars = {}
 
--- The glow is four thin status bars around the panel whose range is just below the threshold up to the threshold:
--- they fill (and so show) exactly when runic power is at or above it. The bar's own setters accept values the client
--- hides in combat, so this never has to read or compare the number.
-local function UpdateGlow(cur)
+-- The runic power value (of `max`, normally 100) that rpPercent of the bar stands for.
+local function ThresholdValue(max)
+	local pct = ns.db.rpPercent
+	local ok, value = pcall(function()
+		return max * pct / 100
+	end)
+	if not ok or not value then
+		value = pct -- the client hides the max; it is 100 unless a talent raises it
+	end
+	return value
+end
+
+-- The glow is a set of status bars (a border, an outer halo and a wash over the bar) whose range is just below the
+-- threshold up to the threshold: they fill (and so show) exactly when runic power is at or above it. The bar's own
+-- setters accept values the client hides in combat, so this never has to read or compare the number.
+local function UpdateGlow(cur, max)
 	local db = ns.db
 	if not db.rpGlow then
 		glow:Hide()
@@ -19,25 +31,20 @@ local function UpdateGlow(cur)
 	if not glowAnim:IsPlaying() then
 		glowAnim:Play()
 	end
-	local thr = db.rpThreshold
+	local thr = ThresholdValue(max)
 	for _, g in ipairs(glowBars) do
 		g:SetMinMaxValues(thr - 0.5, thr)
 		g:SetValue(ns.IsPreview() and thr or cur)
 	end
 end
 
--- Puts the split line at the threshold's share of the bar (the bar's max is 100, or more with some talents).
-local function PlaceSplit(max)
+-- Puts the split line at rpPercent of the bar's width.
+local function PlaceSplit()
 	local db = ns.db
-	local ok, frac = pcall(function()
-		return math.min(1, db.rpThreshold / max)
-	end)
-	if not ok or not frac then
-		frac = math.min(1, db.rpThreshold / 100)
-	end
+	local x = (db.rpWidth - 2) * db.rpPercent / 100
 	split:ClearAllPoints()
-	split:SetPoint("TOP", bar, "TOPLEFT", (db.rpWidth - 2) * frac, 0)
-	split:SetPoint("BOTTOM", bar, "BOTTOMLEFT", (db.rpWidth - 2) * frac, 0)
+	split:SetPoint("TOP", bar, "TOPLEFT", x, 0)
+	split:SetPoint("BOTTOM", bar, "BOTTOMLEFT", x, 0)
 end
 
 -- Cheap pass for power events: only the bar value, text, glow and split line change.
@@ -48,8 +55,8 @@ local function UpdateRP()
 	local db = ns.db
 	local max = UnitPowerMax("player", RUNIC_POWER)
 	local cur = UnitPower("player", RUNIC_POWER)
-	UpdateGlow(cur)
-	PlaceSplit(max)
+	UpdateGlow(cur, max)
+	PlaceSplit()
 	-- StatusBar setters accept values the client hides, so no arithmetic on them here.
 	bar:SetMinMaxValues(0, max)
 	bar:SetValue(cur)
@@ -104,11 +111,12 @@ function ns.RunicPowerDebug()
 	local cur = UnitPower("player", RUNIC_POWER)
 	local max = UnitPowerMax("player", RUNIC_POWER)
 	local secret = issecretvalue ~= nil and issecretvalue(cur)
+	local thr = ThresholdValue(max)
 	local ok, high = pcall(function()
-		return cur >= ns.db.rpThreshold
+		return cur >= thr
 	end)
-	ns.Print(("runic power bar: shown=%s glowOn=%s glowShown=%s threshold=%s value secret=%s, readable compare=%s%s"):format(
-		tostring(frame:IsShown()), tostring(ns.db.rpGlow), tostring(glow:IsShown()), tostring(ns.db.rpThreshold),
+	ns.Print(("runic power bar: shown=%s glowOn=%s glowShown=%s split/glow at %s%% (= %s) value secret=%s, readable compare=%s%s"):format(
+		tostring(frame:IsShown()), tostring(ns.db.rpGlow), tostring(glow:IsShown()), tostring(ns.db.rpPercent), tostring(thr),
 		tostring(secret), tostring(ok), ok and (" (at/above: " .. tostring(high) .. ")") or ""))
 	for i, g in ipairs(glowBars) do
 		local lo, hi = g:GetMinMaxValues()
@@ -117,7 +125,7 @@ function ns.RunicPowerDebug()
 end
 
 function ns.InitRunicPower()
-	frame = CreateFrame("Frame", "DruidMonroRunicPower", UIParent)
+	frame = CreateFrame("Frame", "MonroTrackerRunicPower", UIParent)
 	frame:SetFrameStrata("MEDIUM")
 	ns.MakeDraggable(frame, "rpX", "rpY")
 
@@ -153,33 +161,46 @@ function ns.InitRunicPower()
 	glow:SetAllPoints()
 	glow:SetFrameLevel(bar:GetFrameLevel() + 2)
 	glow:Hide()
-	local function Edge(p1, x1, y1, p2, x2, y2, w, h)
+	local function GateBar()
 		local g = CreateFrame("StatusBar", nil, glow)
 		g:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
-		g:SetStatusBarColor(0.3, 0.85, 1, 1)
 		g:GetStatusBarTexture():SetBlendMode("ADD")
 		g:SetMinMaxValues(0, 1)
 		g:SetValue(0)
-		g:SetPoint(p1, frame, p1, x1, y1)
-		g:SetPoint(p2, frame, p2, x2, y2)
-		if w then
-			g:SetWidth(w)
-		end
-		if h then
-			g:SetHeight(h)
-		end
 		glowBars[#glowBars + 1] = g
+		return g
 	end
-	Edge("TOPLEFT", -3, 3, "TOPRIGHT", 3, 3, nil, 3)
-	Edge("BOTTOMLEFT", -3, -3, "BOTTOMRIGHT", 3, -3, nil, 3)
-	Edge("TOPLEFT", -3, 3, "BOTTOMLEFT", -3, -3, 3, nil)
-	Edge("TOPRIGHT", 3, 3, "BOTTOMRIGHT", 3, -3, 3, nil)
+	-- A border `t` thick whose outer edge is `o` outside the panel, in the given color.
+	local function Ring(o, t, r, g, b, a)
+		local function Edge(p1, x1, y1, p2, x2, y2, w, h)
+			local s = GateBar()
+			s:SetStatusBarColor(r, g, b, a)
+			s:SetPoint(p1, frame, p1, x1, y1)
+			s:SetPoint(p2, frame, p2, x2, y2)
+			if w then
+				s:SetWidth(w)
+			end
+			if h then
+				s:SetHeight(h)
+			end
+		end
+		Edge("TOPLEFT", -o, o, "TOPRIGHT", o, o, nil, t)
+		Edge("BOTTOMLEFT", -o, -o, "BOTTOMRIGHT", o, -o, nil, t)
+		Edge("TOPLEFT", -o, o, "BOTTOMLEFT", -o, -o, t, nil)
+		Edge("TOPRIGHT", o, o, "BOTTOMRIGHT", o, -o, t, nil)
+	end
+	Ring(9, 4, 0.3, 0.85, 1, 0.45) -- soft outer halo
+	Ring(5, 5, 0.55, 0.95, 1, 1) -- bright border
+	local wash = GateBar() -- the bar itself lights up
+	wash:SetStatusBarColor(0.7, 1, 1, 0.35)
+	wash:SetPoint("TOPLEFT", bar)
+	wash:SetPoint("BOTTOMRIGHT", bar)
 	glowAnim = glow:CreateAnimationGroup()
 	glowAnim:SetLooping("BOUNCE")
 	local fade = glowAnim:CreateAnimation("Alpha")
 	fade:SetFromAlpha(1)
-	fade:SetToAlpha(0.3)
-	fade:SetDuration(0.5)
+	fade:SetToAlpha(0.35)
+	fade:SetDuration(0.4)
 	fade:SetSmoothing("IN_OUT")
 
 	local events = CreateFrame("Frame")

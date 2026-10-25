@@ -1,6 +1,6 @@
 local ADDON_NAME, ns = ...
 
-local ICON = "Interface\\Icons\\Ability_Racial_BearForm"
+local ICON = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Icon"
 
 local button
 
@@ -21,7 +21,7 @@ end
 
 local function ShowTooltip(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-	GameTooltip:AddLine("DruidMonro")
+	GameTooltip:AddLine("MonroTracker")
 	GameTooltip:AddLine("|cffffffffLeft-click|r open settings", 0.8, 0.8, 0.8)
 	GameTooltip:AddLine("|cffffffffRight-click|r " .. (ns.unlocked and "lock" or "unlock") .. " elements", 0.8, 0.8, 0.8)
 	GameTooltip:AddLine("|cffffffffDrag|r move this button", 0.8, 0.8, 0.8)
@@ -37,7 +37,7 @@ function ns.ApplyMinimap()
 end
 
 function ns.InitMinimap()
-	button = CreateFrame("Button", "DruidMonroMinimapButton", Minimap)
+	button = CreateFrame("Button", "MonroTrackerMinimapButton", Minimap)
 	button:SetSize(31, 31)
 	button:SetFrameStrata("MEDIUM")
 	button:SetFrameLevel(8)
@@ -52,7 +52,7 @@ function ns.InitMinimap()
 
 	local icon = button:CreateTexture(nil, "ARTWORK")
 	icon:SetTexture(ICON)
-	icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	icon:SetTexCoord(0, 1, 0, 1)
 	icon:SetSize(17, 17)
 	icon:SetPoint("TOPLEFT", 7, -6)
 

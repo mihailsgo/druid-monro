@@ -162,7 +162,7 @@ local function Check(w)
 	end
 	local now = GetTime()
 	local ok, at = pcall(ReadyAt, w, id)
-	w.lastRead = ok and at or "hidden" -- for /druidm cddebug
+	w.lastRead = ok and at or "hidden" -- for /mtr cddebug
 	-- In combat the client can hide a cooldown or report it as ready. After a cast (see OnCast) a "ready" reading is
 	-- only believed once the client has shown this cooldown running, which proves it is reporting truthfully.
 	if ok and at ~= nil then
@@ -343,7 +343,7 @@ local function OnCast(spellID)
 	end
 end
 
--- /druidm cddebug: what each reminder sees right now.
+-- /mtr cddebug: what each reminder sees right now.
 function ns.CooldownDebug()
 	ns.Print("voice reminder debug")
 	local now = GetTime()
@@ -363,7 +363,7 @@ function ns.CooldownDebug()
 	end
 end
 
--- /druidm spy: prints your casts and gained buffs, to find the spell IDs of a proc.
+-- /mtr spy: prints your casts and gained buffs, to find the spell IDs of a proc.
 local spyFrame
 
 local function SpyLabel(id, name)
@@ -396,7 +396,7 @@ function ns.ToggleSpy()
 		spyFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 		spyFrame:RegisterUnitEvent("UNIT_AURA", "player")
 		ns.Print(("spy on - printing your casts and new buffs (Apex looks for %d / %d, or the name \"%s\"; " ..
-			"engine sound %s). Run /druidm spy again to stop."):format(ANSWERED_CALLING_BUFF, ANSWERED_CALLING_SUMMON,
+			"engine sound %s). Run /mtr spy again to stop."):format(ANSWERED_CALLING_BUFF, ANSWERED_CALLING_SUMMON,
 			ApexName(), ns.ApexSoundRegistered() and "registered" or "NOT registered"))
 	end
 end

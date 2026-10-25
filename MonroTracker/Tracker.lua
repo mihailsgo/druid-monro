@@ -184,7 +184,7 @@ local function SameSpell(spellID, castID)
 	return a ~= nil and b ~= nil and not IsSecret(a) and not IsSecret(b) and a == b
 end
 
--- For /druidm trackerdebug: casts the player did, how many had a hidden spell ID, and the last few casts of tracked
+-- For /mtr trackerdebug: casts the player did, how many had a hidden spell ID, and the last few casts of tracked
 -- abilities.
 local casts = { total = 0, hidden = 0, log = {} }
 
@@ -320,7 +320,7 @@ local function GetFrame(i)
 	if f then
 		return f
 	end
-	f = CreateFrame("Frame", "DruidMonroTracker" .. i, UIParent)
+	f = CreateFrame("Frame", "MonroTrackerTracker" .. i, UIParent)
 	f:SetFrameStrata("MEDIUM")
 	ns.MakeDraggable(f, "x", "y", function()
 		return ns.db.trackers[i]
@@ -372,7 +372,7 @@ local function UpdateTrackers()
 	end
 end
 
--- /druidm trackerdebug: what the client says about each tracked ability and what the addon makes of it.
+-- /mtr trackerdebug: what the client says about each tracked ability and what the addon makes of it.
 local function Hidden(v)
 	return IsSecret(v) and "hidden" or tostring(v)
 end

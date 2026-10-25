@@ -69,7 +69,7 @@ Boss hard-enrage timers cannot be dispelled.
 - **DBM** (Kings' Rest trash) independently warns "RemoveEnrage" for Ancestral Fury.
 
 Not enumerated spell by spell: the three "none" dungeons are based on those sources plus Method's ability trackers, not on
-opening every spell on Wowhead. If the panel ever lights up on a mob not listed here, `/druidm enragedebug` will name the
+opening every spell on Wowhead. If the panel ever lights up on a mob not listed here, `/mtr enragedebug` will name the
 buff when the client allows it (spell ID and name), and it can be added.
 
 ## What this means for the enrage panel

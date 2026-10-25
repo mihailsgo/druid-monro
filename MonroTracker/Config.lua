@@ -369,10 +369,10 @@ local function BuildGeneralPage()
 	list:SetJustifyH("LEFT")
 	list:SetSpacing(4)
 	list:SetText(
-		"|cff33ff99/druidm|r  open these settings\n"
-			.. "|cff33ff99/druidm unlock|r  show and drag every element (run again to lock)\n"
-			.. "|cff33ff99/druidm minimap|r  show or hide the minimap button\n"
-			.. "|cff33ff99/druidm reset|r  reset all settings and positions"
+		"|cff33ff99/mtr|r  open these settings\n"
+			.. "|cff33ff99/mtr unlock|r  show and drag every element (run again to lock)\n"
+			.. "|cff33ff99/mtr minimap|r  show or hide the minimap button\n"
+			.. "|cff33ff99/mtr reset|r  reset all settings and positions"
 	)
 end
 
@@ -890,7 +890,7 @@ local function BuildRunicPowerPage()
 	local page = Page(
 		"runic",
 		"Runic power bar",
-		"A bar showing your runic power, with a split line at the threshold. The bar glows once runic power reaches it."
+		"A bar showing your runic power, with a split line at a percentage of the bar you choose. The bar glows once runic power reaches that line."
 	)
 	local p = Panel(page, "Show the runic power bar", function()
 		return ns.db.rpEnabled
@@ -915,10 +915,10 @@ local function BuildRunicPowerPage()
 		ns.db.rpHeight = v
 	end)
 
-	widgets.rpThreshold = Slider(c, "Split line and glow at", 0, -112, 10, 100, 1, function()
-		return ns.db.rpThreshold
+	widgets.rpPercent = Slider(c, "Split line and glow at (% of the bar)", 0, -112, 1, 100, 1, function()
+		return ns.db.rpPercent
 	end, function(v)
-		ns.db.rpThreshold = v
+		ns.db.rpPercent = v
 	end)
 
 	Label(c, "Color", 0, -168)
@@ -1213,7 +1213,7 @@ local function BuildEnragePage()
 
 	local hint = Label(c, "The marker is drawn by the game itself, so it works in combat inside dungeons. The list and the voice "
 		.. "need the addon to read the mob: they always work out of combat and in the open world, and in dungeon combat only "
-		.. "when the marker's size can be read. /druidm enragedebug shows what each nameplate reports.", 0, -272,
+		.. "when the marker's size can be read. /mtr enragedebug shows what each nameplate reports.", 0, -272,
 		"GameFontHighlightSmall")
 	hint:SetPoint("TOPRIGHT", 0, -272)
 	hint:SetJustifyH("LEFT")
@@ -1223,14 +1223,14 @@ end
 
 local function BuildMainPanel()
 	panel = CreateFrame("Frame")
-	panel.name = "DruidMonro"
+	panel.name = "MonroTracker"
 
 	-- Sidebar: feature navigation, with the always-needed positioning buttons at the bottom
 	local nav = CreateFrame("Frame", nil, panel)
 	nav:SetPoint("TOPLEFT", 16, -16)
 	nav:SetPoint("BOTTOMLEFT", 16, 16)
 	nav:SetWidth(NAV_WIDTH)
-	Label(nav, "DruidMonro", 0, 0, "GameFontNormalHuge")
+	Label(nav, "MonroTracker", 0, 0, "GameFontNormalHuge")
 
 	-- Druid-only features get no sidebar entry (or page) on other classes.
 	local druid = ns.IsDruid()

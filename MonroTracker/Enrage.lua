@@ -14,7 +14,7 @@ local ADDON_NAME, ns = ...
 -- Mobs are found through their nameplates, so enemy nameplates have to be on.
 
 local SOOTHE = 2908
--- Only used by /druidm enragedebug, to show what the engine's own dispel filters say about each mob.
+-- Only used by /mtr enragedebug, to show what the engine's own dispel filters say about each mob.
 local SOOTHE_FILTER = "HELPFUL|RAID_PLAYER_DISPELLABLE|INCLUDE_NAME_PLATE_ONLY"
 local SOOTHE_FALLBACK_ICON = "Interface\\Icons\\Ability_Hunter_BeastSoothe"
 local MARK_TEXTURE = "Interface\\TargetingFrame\\UI-RaidTargetingIcons"
@@ -466,7 +466,7 @@ local MARKER_MIN_WIDTH = 4 -- an empty container is 1x1; with an icon in it, it 
 local NO_UNIT = "none"
 
 local containers = {} -- unit token -> the aura container drawing that nameplate's marker
-local markerError -- why the engine marker could not be built, for /druidm enragedebug
+local markerError -- why the engine marker could not be built, for /mtr enragedebug
 local markerFailedAt = -math.huge
 local MARKER_RETRY = 5 -- seconds before a refused container is tried again
 -- Declaring a group makes the engine build a batch of buttons (several milliseconds), so a pull that shows ten nameplates at
@@ -634,7 +634,7 @@ end
 
 -- Whether the unit's marker is currently holding an icon, judged by its size (an empty container is 1x1). Only trusted for
 -- "mine", where an icon means a Soothe-able buff; "any" would also count Magic buffs. Whether the size is readable and
--- kept current in combat is what /druidm enragedebug shows.
+-- kept current in combat is what /mtr enragedebug shows.
 function MarkerShowsAura(unit)
 	local c = containers[unit]
 	if not c or MarkerFilter() ~= "mine" or not c:IsShown() then
@@ -745,7 +745,7 @@ function ns.ApplyEnrage()
 	Update()
 end
 
--- /druidm enragedebug: shows what the client lets the addon read on each nameplate, to diagnose a missing mob.
+-- /mtr enragedebug: shows what the client lets the addon read on each nameplate, to diagnose a missing mob.
 local function Shown(v)
 	return IsSecret(v) and "hidden" or tostring(v)
 end
@@ -835,10 +835,10 @@ end
 
 -- Diagnostics recording --------------------------------------------------------------
 -- Dungeon combat is exactly where the client hides things, so what it actually returns there cannot be worked out from
--- here. While enrageRecord is on, the addon notes it down in its own saved settings (DruidMonroDB.enrageLog), which the game
+-- here. While enrageRecord is on, the addon notes it down in its own saved settings (MonroTrackerDB.enrageLog), which the game
 -- writes out on /reload or logout: every couple of seconds in combat a snapshot of each hostile nameplate (what each query
 -- answered, whether it was hidden, what the marker container looks like) and a sample of UNIT_AURA payloads. Nothing hidden
--- is ever stored: every value goes through Safe, because a secret cannot be saved. /druidm enragelog controls it.
+-- is ever stored: every value goes through Safe, because a secret cannot be saved. /mtr enragelog controls it.
 local LOG_INTERVAL = 2
 local LOG_MAX_SNAPSHOTS = 60
 local LOG_MAX_EVENTS = 40
@@ -984,7 +984,7 @@ function ns.SampleAuraEvent(unit, info, now)
 	Push(LogTable().events, e, LOG_MAX_EVENTS)
 end
 
--- /druidm enragelog [clear|on|off]
+-- /mtr enragelog [clear|on|off]
 function ns.EnrageLogCommand(arg)
 	local db = ns.db
 	if arg == "clear" then
@@ -1002,7 +1002,7 @@ function ns.EnrageLogCommand(arg)
 end
 
 function ns.InitEnrage()
-	frame = CreateFrame("Frame", "DruidMonroEnrage", UIParent)
+	frame = CreateFrame("Frame", "MonroTrackerEnrage", UIParent)
 	frame:SetFrameStrata("MEDIUM")
 	ns.MakeDraggable(frame, "enrageX", "enrageY")
 

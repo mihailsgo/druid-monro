@@ -61,7 +61,7 @@ dndEvents:SetScript("OnEvent", function(_, _, _, _, spellID)
 	end
 end)
 
--- true/false, plus where the answer came from (for /druidm glowdebug).
+-- true/false, plus where the answer came from (for /mtr glowdebug).
 function ns.InDeathAndDecay()
 	if C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
 		local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, DND_BUFF)

@@ -83,7 +83,7 @@ function ns.ApplyAbsorb()
 	Update()
 end
 
--- /druidm absorbdebug: shows what the client lets us read, to diagnose a missing icon.
+-- /mtr absorbdebug: shows what the client lets us read, to diagnose a missing icon.
 function ns.AbsorbDebug()
 	ns.Print("absorb debug (run while you have an absorb)")
 	local ok, v = pcall(UnitGetTotalAbsorbs, "player")
@@ -100,7 +100,7 @@ function ns.AbsorbDebug()
 end
 
 function ns.InitAbsorb()
-	frame = CreateFrame("Frame", "DruidMonroAbsorb", UIParent)
+	frame = CreateFrame("Frame", "MonroTrackerAbsorb", UIParent)
 	frame:SetFrameStrata("MEDIUM")
 	ns.MakeDraggable(frame, "absorbX", "absorbY")
 

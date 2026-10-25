@@ -132,7 +132,7 @@ function ns.SetUnlocked(value)
 end
 
 function ns.InitDisplay()
-	frame = CreateFrame("Frame", "DruidMonroText", UIParent)
+	frame = CreateFrame("Frame", "MonroTrackerText", UIParent)
 	frame:SetFrameStrata("MEDIUM")
 	ns.MakeDraggable(frame, "x", "y")
 

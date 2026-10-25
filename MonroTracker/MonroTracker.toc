@@ -1,0 +1,23 @@
+## Interface: 120105
+## Title: MonroTracker
+## Notes: Ability trackers, ability glow, absorb icon, trinket voice/glow and class helpers (Druid: Bear Form text, Moonfire proc, rage and enrage/Soothe panels; Death Knight: runic power bar).
+## Author: mihailsgo
+## Version: 0.1.0
+## SavedVariables: MonroTrackerDB
+## OptionalDeps: LibSharedMedia-3.0
+## IconTexture: Interface\AddOns\MonroTracker\Icon.tga
+
+Core.lua
+Display.lua
+Indicator.lua
+Tracker.lua
+AbilityGlow.lua
+Rage.lua
+RunicPower.lua
+Enrage.lua
+Absorb.lua
+Voice.lua
+Reminders.lua
+TrinketGlow.lua
+Minimap.lua
+Config.lua

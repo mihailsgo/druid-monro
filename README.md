@@ -1,13 +1,13 @@
-# DruidMonro
+# MonroTracker
 
-World of Warcraft addon for Druids. Copy the `DruidMonro` folder into `World of Warcraft\_retail_\Interface\AddOns\`.
+World of Warcraft addon: ability trackers, ability glow, absorb icon, trinket reminders and class helpers (Druid, Death Knight). Copy the `MonroTracker` folder into `World of Warcraft\_retail_\Interface\AddOns\`.
 
 It also has a runic power bar for Death Knights (see below). It works on other classes too: the Druid-only features (Bear Form text, Moonfire indicator, Rage panel, Enrage panel,
 Heart of the Wild reminder and Apex proc) stay off and disappear from the settings window, while the class-independent ones keep
 working - **Ability trackers**, **Ability glow**, the **Absorb shield** icon, the **trinket** voice reminder and action-bar glow, the voice
 selection and the minimap button. (The "Only while Frenzied Regeneration is active" absorb option is Druid-only too.)
 
-Open the configuration with `/druidm` (or `/druidmonro`), or via **Game Menu > Options > AddOns > DruidMonro**.
+Open the configuration with `/mtr` (or `/monrotracker`), or via **Game Menu > Options > AddOns > MonroTracker**.
 
 ## Settings window
 The settings are one window with a sidebar listing every feature: **General**, **Bear Form text**,
@@ -52,7 +52,7 @@ reading them there: a successful cast (matched by ID or by name, so form-specifi
 starts the addon's own timer - the longest cooldown seen, or the spell's base cooldown - and charge abilities count their
 charges down and recharge them the same way. Out of combat the client's reading takes over again; in combat only a
 reading that shows the ability still on cooldown is believed, never one that says "ready". Several casts of the same ability within a second (Charge reports two, with different spell
-IDs) count as one use. `/druidm trackerdebug` prints, per tracker, what the client reports, what the addon believes and
+IDs) count as one use. `/mtr trackerdebug` prints, per tracker, what the client reports, what the addon believes and
 the last casts it saw.
 
 ### 4. Ability glow
@@ -69,13 +69,13 @@ never glow. While the settings are open every enabled ability is previewed as gl
 switch for the whole page.
 
 Cooldowns are followed exactly like the ability trackers do (the addon's own timer from your casts when the client hides
-cooldowns in combat), and an ability can be in both lists. `/druidm glowdebug` lists, per ability, its state and which
+cooldowns in combat), and an ability can be in both lists. `/mtr glowdebug` lists, per ability, its state and which
 buttons hold it.
 
 **Death Knights** get one built-in rule on this page, **Heart Strike: glow while Death and Decay is on you**: Heart Strike's
 buttons glow while you have the Death and Decay buff (spell 188290, "Heart Strike will hit up to 5 targets") and Heart Strike is
 usable (rune or runic power available). If the client will not show the buff in combat, the addon falls back to a 10 second timer
-started by your own Death and Decay cast, so it can stay lit for a moment after you step out of it. `/druidm glowdebug` shows
+started by your own Death and Decay cast, so it can stay lit for a moment after you step out of it. `/mtr glowdebug` shows
 which of the two it is using.
 
 ### 5. Rage panel
@@ -89,9 +89,11 @@ A rage bar shown while you are in Bear Form.
 
 #### Runic power bar (Death Knight)
 Death Knight only, shown in the sidebar as **Runic power bar**. The same kind of bar as the rage panel, for runic power, with a
-white **split line** at 75 (of 100) and a pulsing icy-blue **glow** while runic power is at or above that line.
+white **split line** at 75% of the bar and a pulsing icy-blue **glow** while runic power is at or above that line. The glow is
+a bright double border with an outer halo plus a wash over the bar itself, so it is hard to miss.
 
-- **Split line and glow at** (10 to 100, default 75) moves the line and the glow threshold together.
+- **Split line and glow at** (1 to 100 percent of the bar, default 75) moves the line and the glow threshold together; the
+  percentage is of your maximum runic power, so it stays right if a talent raises the maximum.
 - **Width**, **height**, **color**, **Show runic power number**, **Only show in combat** and **Glow when at or above the split line**
   work like the rage panel's. Unlike the rage panel it is not tied to a form, so it is shown whenever you are a Death Knight.
 - **Location** - drag it.
@@ -129,9 +131,9 @@ enraged longest first, so you know which one to cast it on.
   off there and the marker still does the job.
 - **Diagnostics.** While `enrageRecord` is on (the default for now), every couple of seconds in combat the addon notes what
   each query returned on each hostile nameplate (hidden or not, the marker's size, each spell's secrecy class) into its saved
-  settings. The game writes it out on `/reload` or logout. `/druidm enragelog` shows how much is recorded; `clear`, `on` and
+  settings. The game writes it out on `/reload` or logout. `/mtr enragelog` shows how much is recorded; `clear`, `on` and
   `off` control it. Hidden values are never stored.
-- `/druidm enragedebug` prints, per enemy nameplate, how many buffs it has, the colour each buff gives (or "hidden"), the
+- `/mtr enragedebug` prints, per enemy nameplate, how many buffs it has, the colour each buff gives (or "hidden"), the
   buff's spell ID and name where the client lets the addon read them, and the marker container's size, which is the first
   thing to check when a mob is missing.
 - Every Season 2 Mythic+ mob with an enrage is listed in [docs/midnight-s2-enrages.md](docs/midnight-s2-enrages.md), to use as a
@@ -148,7 +150,7 @@ absorb - Frenzied Regeneration's and any other source's are included in the numb
   which the client may hide in Mythic+ and other restricted content; leave it off there.
 - The icon and number also work when the client hides the absorb value (Midnight "secret" values, e.g. in Mythic+): they are
   passed straight to the display without the addon reading them.
-- `/druidm absorbdebug` prints what the client lets the addon read.
+- `/mtr absorbdebug` prints what the client lets the addon read.
 
 ### 8. Voice reminders
 Spoken callouts through the game's built-in text-to-speech (the same engine and voice handling as MonroMDTTrack's boss
@@ -161,13 +163,13 @@ callouts), so no sound files are needed.
   - **Glow on action bars while ready** - the trinket's button (placed directly or through a macro such as `/use 13`)
     shows the proc glow whenever the trinket can be used. Works on the default Blizzard bars, **ButtonForge**, and
     LibActionButton bars (**Bartender4**, **ElvUI**); not on other bar addons. Previewed while the settings are open.
-    `/druidm glowdebug` prints why it is or is not glowing and which buttons hold the trinket.
+    `/mtr glowdebug` prints why it is or is not glowing and which buttons hold the trinket.
 - **Heart of the Wild ready** - says "Heart of the Wild ready" when Heart of the Wild comes off cooldown (only while talented).
 - **Apex proc** - says "Apex" when Wild Guardian (the Guardian apex talent) awakens a guardian spirit, i.e. when you gain
   the Answered Calling buff (1308647). Since patch 12.1 addons cannot see buffs appear, so the addon registers a
   recorded clip (`Sounds/Apex.ogg`, Zira voice) with `C_UnitAuras.AddAuraSound` and the game plays it itself; **Test**
   plays the clip. Registration is not allowed in combat inside instanced PvE, so it happens on login/loading screens
-  and is retried when combat ends. `/druidm spy` prints your casts and new buffs, and says whether the sound is registered.
+  and is retried when combat ends. `/mtr spy` prints your casts and new buffs, and says whether the sound is registered.
 - **Voice** - pick an installed Windows speech voice, or **Automatic**: the voice chosen in MonroMDTTrack if any,
   otherwise the best installed one (Windows 11 "Natural" voices first). **Test** speaks a sample and prints why if it fails.
 - Speech rate and volume follow the game's Text to Speech settings. Add more voices under Windows
@@ -182,25 +184,25 @@ trackers, Ability glow, Rage panel, Enrage panel, Absorb shield, Heart of the Wi
 completely, including in the unlock/preview mode. Individual trackers can still be toggled on their own, and the trinket's voice and glow have their own checkboxes.
 
 ### Positioning
-Press **Unlock to move** in the sidebar (or `/druidm unlock`) to show every element regardless of game state and drag
+Press **Unlock to move** in the sidebar (or `/mtr unlock`) to show every element regardless of game state and drag
 them. While the panel is open, all elements are also previewed so you can see font, color and glow changes live.
 
 ### Minimap button
-A minimap button (bear icon) gives quick access: **left-click** opens the configuration, **right-click** toggles
-unlock/lock, **drag** moves it around the minimap. It can be hidden from the General page or with `/druidm minimap`.
+A minimap button (crosshair icon) gives quick access: **left-click** opens the configuration, **right-click** toggles
+unlock/lock, **drag** moves it around the minimap. It can be hidden from the General page or with `/mtr minimap`.
 
 ## Commands
 
 | Command | Effect |
 | --- | --- |
-| `/druidm` | open the configuration panel |
-| `/druidm unlock` | toggle unlock/lock for dragging |
-| `/druidm minimap` | show or hide the minimap button |
-| `/druidm reset` | reset everything to defaults |
-| `/druidm glowdebug` | show why the trinket and the Glow page's abilities are or are not glowing |
-| `/druidm spy` | print your casts and new buffs (run again to stop) |
-| `/druidm cddebug` | show what the trinket / Heart of the Wild voice reminders see right now |
-| `/druidm trackerdebug` | show what the client reports for each ability tracker and what the addon makes of it |
-| `/druidm enragedebug` | show what the client lets the enrage panel read on each enemy nameplate |
-| `/druidm rpdebug` | show what the client reports for the runic power bar and its glow |
-| `/druidm enragelog [clear\|on\|off]` | the enrage panel's combat diagnostics, saved on `/reload` |
+| `/mtr` | open the configuration panel |
+| `/mtr unlock` | toggle unlock/lock for dragging |
+| `/mtr minimap` | show or hide the minimap button |
+| `/mtr reset` | reset everything to defaults |
+| `/mtr glowdebug` | show why the trinket and the Glow page's abilities are or are not glowing |
+| `/mtr spy` | print your casts and new buffs (run again to stop) |
+| `/mtr cddebug` | show what the trinket / Heart of the Wild voice reminders see right now |
+| `/mtr trackerdebug` | show what the client reports for each ability tracker and what the addon makes of it |
+| `/mtr enragedebug` | show what the client lets the enrage panel read on each enemy nameplate |
+| `/mtr rpdebug` | show what the client reports for the runic power bar and its glow |
+| `/mtr enragelog [clear\|on\|off]` | the enrage panel's combat diagnostics, saved on `/reload` |

@@ -139,7 +139,7 @@ function ns.ApplyIndicator()
 end
 
 function ns.InitIndicator()
-	frame = CreateFrame("Frame", "DruidMonroIndicator", UIParent)
+	frame = CreateFrame("Frame", "MonroTrackerIndicator", UIParent)
 	frame:SetFrameStrata("MEDIUM")
 	ns.MakeDraggable(frame, "indX", "indY")
 

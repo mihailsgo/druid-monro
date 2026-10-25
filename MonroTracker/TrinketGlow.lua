@@ -21,7 +21,7 @@ local LAB_VERSIONS = { "LibActionButton-1.0", "LibActionButton-1.0-ElvUI" }
 local buttonItem = {} -- button -> itemID its action uses (rebuilt by Rescan)
 local buttonSpell = {} -- button -> spellID its action casts
 local buttonSpellName = {} -- button -> that spell's name
-local buttonSource = {} -- button -> bar addon name, for /druidm glowdebug
+local buttonSource = {} -- button -> bar addon name, for /mtr glowdebug
 local glows = {} -- button -> glow frame
 
 local function IsSecret(v)
@@ -149,7 +149,7 @@ local function QueueRescan()
 	end
 end
 
--- The trinket's itemID while it should glow, else nil (plus a reason, for /druidm glowdebug).
+-- The trinket's itemID while it should glow, else nil (plus a reason, for /mtr glowdebug).
 local function GlowingItem()
 	local db = ns.db
 	local id = db.trinketItemID
@@ -259,7 +259,7 @@ function ns.UpdateGlows()
 	end
 end
 
--- /druidm glowdebug: why the trinket and the Glow page's abilities are or are not glowing, and which buttons hold them.
+-- /mtr glowdebug: why the trinket and the Glow page's abilities are or are not glowing, and which buttons hold them.
 function ns.GlowDebug()
 	Rescan()
 	local id = ns.db.trinketItemID
