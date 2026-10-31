@@ -105,7 +105,39 @@ end
 -- Everything the engine buttons bake in; a change in any of it needs a new display.
 local function StyleSignature()
 	local db = ns.db
-	return table.concat({ db.edSize, db.edSwipe and 1 or 0, db.edShowTimer and 1 or 0, db.edTimerFontSize }, "|")
+	return table.concat({ db.edSize, db.edSwipe and 1 or 0, db.edShowTimer and 1 or 0, db.edTimerFontSize, db.edGlow and 1 or 0 }, "|")
+end
+
+-- A pulsing golden border over an icon. Returns the frame and its animation, which the caller starts.
+local function MakeGlow(parent)
+	local ring = CreateFrame("Frame", nil, parent)
+	ring:SetAllPoints(parent)
+	ring:SetFrameLevel(parent:GetFrameLevel() + 8)
+	ring:EnableMouse(false)
+	local function edge(p1, p2, w, h)
+		local t = ring:CreateTexture(nil, "OVERLAY")
+		t:SetColorTexture(1, 0.82, 0.2, 1)
+		t:SetPoint(p1)
+		t:SetPoint(p2)
+		if w then
+			t:SetWidth(w)
+		end
+		if h then
+			t:SetHeight(h)
+		end
+	end
+	edge("TOPLEFT", "TOPRIGHT", nil, 3)
+	edge("BOTTOMLEFT", "BOTTOMRIGHT", nil, 3)
+	edge("TOPLEFT", "BOTTOMLEFT", 3, nil)
+	edge("TOPRIGHT", "BOTTOMRIGHT", 3, nil)
+	local pulse = ring:CreateAnimationGroup()
+	pulse:SetLooping("BOUNCE")
+	local fade = pulse:CreateAnimation("Alpha")
+	fade:SetFromAlpha(1)
+	fade:SetToAlpha(0.3)
+	fade:SetDuration(0.5)
+	fade:SetSmoothing("IN_OUT")
+	return ring, pulse
 end
 
 -- Runs once per button, while the engine still lets addon code touch it.
@@ -144,6 +176,15 @@ local function InitButton(style, button)
 	if timer then
 		ns.RegisterTimerText(button, timer, TIMER_DECIMALS, 0)
 	end
+	if style.glow then
+		pcall(function()
+			local _, pulse = MakeGlow(button)
+			-- The engine plays the group while the button shows an aura (12.1.5); an older client just runs it.
+			if not (button.AddAuraShownAnimation and pcall(button.AddAuraShownAnimation, button, pulse)) then
+				pulse:Play()
+			end
+		end)
+	end
 end
 
 local function GroupLayout(size)
@@ -167,6 +208,7 @@ local function BuildDisplay(signature)
 		swipe = db.edSwipe,
 		showTimer = db.edShowTimer,
 		timerFontSize = db.edTimerFontSize,
+		glow = db.edGlow,
 	}
 	local entry = { signature = signature }
 	local ok, err = pcall(function()
@@ -251,6 +293,7 @@ local function StylePreview()
 		b.icon:SetTexture(spell and C_Spell.GetSpellTexture(spell.ids[1]) or FALLBACK_ICON)
 		b.timer:SetFont(ns.DEFAULT_FONT, db.edTimerFontSize, "OUTLINE")
 		b.timer:SetShown(db.edShowTimer)
+		b.ring:SetShown(db.edGlow and true or false)
 		b:SetShown(i <= db.edMax)
 	end
 end
@@ -370,6 +413,9 @@ function ns.InitExtDef()
 		b.timer:SetFont(ns.DEFAULT_FONT, 16, "OUTLINE")
 		b.timer:SetPoint("CENTER")
 		b.timer:SetText(({ "12.3", "8", "1:05" })[i])
+		local ring, pulse = MakeGlow(b)
+		b.ring = ring
+		pulse:Play()
 		previewButtons[i] = b
 	end
 end

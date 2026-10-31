@@ -4,6 +4,7 @@ local panel, category
 local widgets = {} -- main panel widgets with a Refresh method
 local trackerWidgets = {} -- tracker editor widgets with a Refresh method
 local openCount = 0
+local refreshReported = {} -- widget key -> true once its refresh error was printed
 
 local BUILTIN_FONTS = {
 	{ name = "Friz Quadrata", path = "Fonts\\FRIZQT__.TTF" },
@@ -1026,7 +1027,8 @@ end
 
 -- External defensives page ---------------------------------------------------
 
-local EXTDEF_ROW_HEIGHT = 38
+local EXTDEF_ROW_HEIGHT = 34
+local EXTDEF_ROW_WIDTH = 200
 local extDefRows = {}
 
 local function ClassLabel(class)
@@ -1035,11 +1037,12 @@ local function ClassLabel(class)
 	return color and ("|c%s%s|r"):format(color.colorStr, name) or name
 end
 
+-- The settings area is narrow (about 430 wide), so this page is one column: the look on top, the choice of spells below.
 local function BuildExtDefPage()
 	local page = Page(
 		"extdef",
 		"External defensives",
-		"The big defensives other players put on you (Pain Suppression, Ironbark, Blessing of Sacrifice ...) as a row of icons with the time left. The game draws it, so it works in combat."
+		"Big defensives other players put on you, as icons with the time left. The game draws them, so it works in combat."
 	)
 	local p = Panel(page, "Show external defensives", function()
 		return ns.db.edEnabled
@@ -1056,92 +1059,97 @@ local function BuildExtDefPage()
 	end, function(v)
 		ns.db.edSize = v
 	end)
-	widgets.edMax = Slider(c, "Icons shown at once", 0, -56, 1, 8, 1, function()
+	widgets.edMax = Slider(c, "Icons shown at once", 0, -52, 1, 8, 1, function()
 		return ns.db.edMax
 	end, function(v)
 		ns.db.edMax = v
 	end)
-	widgets.edTimerFontSize = Slider(c, "Time font size", 0, -112, 8, 48, 1, function()
+	widgets.edTimerFontSize = Slider(c, "Time font size", 0, -104, 8, 48, 1, function()
 		return ns.db.edTimerFontSize
 	end, function(v)
 		ns.db.edTimerFontSize = v
 	end)
-	widgets.edShowTimer = Checkbox(c, "Show time left", 0, -168, function()
+
+	-- Beside the sliders, with short labels so they fit
+	local CX = 276
+	widgets.edShowTimer = Checkbox(c, "Show time", CX, 0, function()
 		return ns.db.edShowTimer
 	end, function(v)
 		ns.db.edShowTimer = v
 	end)
-	widgets.edSwipe = Checkbox(c, "Cooldown swipe on the icons", 0, -198, function()
+	widgets.edSwipe = Checkbox(c, "Swipe", CX, -30, function()
 		return ns.db.edSwipe
 	end, function(v)
 		ns.db.edSwipe = v
 	end)
-	widgets.edCombatOnly = Checkbox(c, "Only show in combat", 0, -228, function()
+	widgets.edGlow = Checkbox(c, "Glow on icons", CX, -90, function()
+		return ns.db.edGlow
+	end, function(v)
+		ns.db.edGlow = v
+	end)
+	widgets.edCombatOnly = Checkbox(c, "Combat only", CX, -120, function()
 		return ns.db.edCombatOnly
 	end, function(v)
 		ns.db.edCombatOnly = v
 	end)
-	local hint = Label(c, "Icon size, time font, time and swipe show a moment after you stop changing them. Use Unlock to move it.", 0, -268,
+	local hint = Label(c, "Size, font, time, swipe and glow apply a moment after you stop. Use Unlock to move it.", 0, -150,
 		"GameFontHighlightSmall")
-	hint:SetPoint("TOPRIGHT", c, "TOPLEFT", 270, -268)
+	hint:SetPoint("TOPRIGHT", c, "TOPRIGHT", 0, -150)
 	hint:SetJustifyH("LEFT")
 
-	-- Right-hand column: which defensives to show
-	local X = 300
-	Label(c, "Show these defensives", X, 0, "GameFontNormalLarge")
-	local presets = { { "Select all", "all" }, { "Deselect all", "none" }, { "Healers only", "healers" } }
-	local x = X
-	for _, preset in ipairs(presets) do
-		local b = ActionButton(c, preset[1], 94, function()
+	-- Which defensives
+	Label(c, "Show these defensives", 0, -178, "GameFontNormalLarge")
+	local x = 0
+	for _, preset in ipairs({ { "Select all", "all" }, { "Deselect all", "none" }, { "Healers only", "healers" } }) do
+		local b = ActionButton(c, preset[1], 96, function()
 			ns.ExtDefPreset(preset[2])
 		end)
-		b:SetPoint("TOPLEFT", x, -26)
-		x = x + 98
+		b:SetPoint("TOPLEFT", x, -204)
+		x = x + 100
 	end
-	widgets.edOthers = Checkbox(c, "Also show defensives not in this list", X - 4, -58, function()
+	widgets.edOthers = Checkbox(c, "Also show defensives not in this list", -4, -234, function()
 		return ns.db.edOthers
 	end, function(v)
 		ns.db.edOthers = v
 	end)
 
+	-- Two columns of rows, in a scroll frame in case the list grows
 	local scroll = CreateFrame("ScrollFrame", nil, c, "UIPanelScrollFrameTemplate")
-	scroll:SetPoint("TOPLEFT", X, -92)
+	scroll:SetPoint("TOPLEFT", 0, -266)
 	scroll:SetPoint("BOTTOMRIGHT", -26, 0)
 	local child = CreateFrame("Frame", nil, scroll)
-	child:SetSize(1, 1)
+	child:SetSize(EXTDEF_ROW_WIDTH * 2, 1)
 	scroll:SetScrollChild(child)
-	scroll:SetScript("OnSizeChanged", function(_, width)
-		child:SetWidth(width)
-	end)
 
 	for i, e in ipairs(ns.EXTDEF_CATALOG) do
+		local col, line = (i - 1) % 2, math.floor((i - 1) / 2)
 		local row = CreateFrame("Frame", nil, child)
-		row:SetHeight(EXTDEF_ROW_HEIGHT)
-		row:SetPoint("TOPLEFT", 0, -(i - 1) * EXTDEF_ROW_HEIGHT)
-		row:SetPoint("TOPRIGHT", 0, -(i - 1) * EXTDEF_ROW_HEIGHT)
+		row:SetSize(EXTDEF_ROW_WIDTH, EXTDEF_ROW_HEIGHT)
+		row:SetPoint("TOPLEFT", col * EXTDEF_ROW_WIDTH, -line * EXTDEF_ROW_HEIGHT)
 		row.entry = e
 		row.check = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+		row.check:SetSize(24, 24)
 		row.check:SetPoint("LEFT", 0, 0)
 		row.check:SetScript("OnClick", function(self)
 			ns.db.edOff[e.ids[1]] = (not self:GetChecked()) or nil
 			ns.Apply()
 		end)
 		local icon = row:CreateTexture(nil, "ARTWORK")
-		icon:SetSize(28, 28)
+		icon:SetSize(26, 26)
 		icon:SetPoint("LEFT", row.check, "RIGHT", 2, 0)
 		icon:SetTexture(C_Spell.GetSpellTexture(e.ids[1]) or 134400)
-		local name = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-		name:SetPoint("TOPLEFT", icon, "TOPRIGHT", 6, -1)
-		name:SetPoint("RIGHT", 0, 0)
+		local name = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+		name:SetPoint("TOPLEFT", icon, "TOPRIGHT", 5, 0)
+		name:SetPoint("RIGHT", row, "RIGHT", -2, 0)
 		name:SetJustifyH("LEFT")
 		name:SetWordWrap(false)
 		name:SetText(C_Spell.GetSpellName(e.ids[1]) or e.name)
 		local detail = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-		detail:SetPoint("BOTTOMLEFT", icon, "BOTTOMRIGHT", 6, 1)
+		detail:SetPoint("BOTTOMLEFT", icon, "BOTTOMRIGHT", 5, 0)
 		detail:SetText(ClassLabel(e.class) .. (e.healer and "  |cff33ff99healer|r" or ""))
 		extDefRows[i] = row
 	end
-	child:SetHeight(#ns.EXTDEF_CATALOG * EXTDEF_ROW_HEIGHT)
+	child:SetHeight(math.ceil(#ns.EXTDEF_CATALOG / 2) * EXTDEF_ROW_HEIGHT)
 
 	widgets.edList = {
 		Refresh = function()
@@ -1565,8 +1573,13 @@ function ns.RefreshConfig()
 		return
 	end
 	selected = math.max(1, math.min(selected, math.max(1, #ns.db.trackers)))
-	for _, w in pairs(widgets) do
-		w:Refresh()
+	for key, w in pairs(widgets) do
+		-- One widget failing must not leave the rest of the window unrefreshed (blank sliders, no status dots).
+		local ok, err = pcall(w.Refresh, w)
+		if not ok and not refreshReported[key] then
+			refreshReported[key] = true
+			ns.Print(("settings widget '%s' failed to refresh: %s"):format(tostring(key), tostring(err)))
+		end
 	end
 	RefreshNav()
 	UpdateListButtons()

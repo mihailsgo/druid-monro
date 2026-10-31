@@ -64,6 +64,7 @@ ns.defaults = {
 	edSwipe = true, -- cooldown swipe over the icons
 	edShowTimer = true,
 	edTimerFontSize = 16,
+	edGlow = true, -- pulsing golden border on each icon
 	edCombatOnly = false,
 	edOthers = true, -- also show external defensives that are not in the list on the page (unless switched off there)
 	edOff = {}, -- first spell ID of each listed defensive that is switched off, see ns.EXTDEF_CATALOG

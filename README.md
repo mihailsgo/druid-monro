@@ -175,9 +175,10 @@ so your choice keeps working in combat.
   a Retribution or Protection Paladin's Blessing counts too. The checkboxes can be adjusted after a preset.
 - **Also show defensives not in this list** - on by default: any other buff the game flags as an external defensive is shown
   too (new talents, other sources). *Deselect all* and *Healers only* switch it off, *Select all* switches it on.
-- **Icon size**, **Icons shown at once** (1 to 8), **Time font size**, **Show time left**, **Cooldown swipe on the icons**
-  and **Only show in combat**. Size, font and the two toggles are baked into the display, so a change shows a moment after you
-  stop moving the slider; the choice of spells and the count apply at once.
+- The panel title is the on/off checkbox for the whole row. **Icon size**, **Icons shown at once** (1 to 8), **Time font size**,
+  **Show time**, **Swipe** (cooldown swipe on the icons), **Glow on icons** (a pulsing golden border, on by default) and
+  **Combat only**. Size, font, time, swipe and glow are baked into the display, so a change shows a moment after you stop
+  moving the slider; the choice of spells, the count and Combat only apply at once.
 - **Location** - drag it. Unlocking, or having the settings window open, shows three sample icons instead.
 - `/mtr extdefdebug` shows whether the engine display was built, its last error, how many spells are switched on and off, and
   what Lua itself can read of the buffs (nothing in combat).
