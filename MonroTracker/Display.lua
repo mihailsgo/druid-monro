@@ -106,6 +106,12 @@ function ns.Apply()
 	if ns.ApplyRunicPower then
 		ns.ApplyRunicPower()
 	end
+	if ns.ApplyBoneShield then
+		ns.ApplyBoneShield()
+	end
+	if ns.ApplyExtDef then
+		ns.ApplyExtDef()
+	end
 	if ns.ApplyAbsorb then
 		ns.ApplyAbsorb()
 	end
@@ -118,8 +124,8 @@ function ns.Apply()
 	if ns.ApplyMinimap then
 		ns.ApplyMinimap()
 	end
-	if ns.ApplyApexSound then
-		ns.ApplyApexSound()
+	if ns.ApplyAuraSounds then
+		ns.ApplyAuraSounds()
 	end
 end
 
@@ -170,6 +176,12 @@ function ns.InitDisplay()
 	end
 	if ns.IsDeathKnight() and ns.InitRunicPower then
 		ns.InitRunicPower()
+	end
+	if ns.IsDeathKnight() and ns.InitBoneShield then
+		ns.InitBoneShield()
+	end
+	if ns.InitExtDef then
+		ns.InitExtDef()
 	end
 	if ns.InitAbsorb then
 		ns.InitAbsorb()

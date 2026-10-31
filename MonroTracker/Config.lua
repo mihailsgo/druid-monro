@@ -945,6 +945,213 @@ local function BuildRunicPowerPage()
 	end)
 end
 
+-- Bone Shield page (Death Knight) ----------------------------------------------
+
+local function BuildBoneShieldPage()
+	local page = Page(
+		"bone",
+		"Bone Shield",
+		"An icon with your Bone Shield stacks and the time left. The game itself draws it, so it keeps working in combat when addons cannot see the buff."
+	)
+	local p = Panel(page, "Show the Bone Shield tracker", function()
+		return ns.db.bsEnabled
+	end, function(v)
+		ns.db.bsEnabled = v
+	end)
+	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
+	p:SetHeight(400)
+	widgets.bsEnabled = p.toggle
+	local c = p.content
+
+	widgets.bsSize = Slider(c, "Icon size", 0, 0, 24, 200, 1, function()
+		return ns.db.bsSize
+	end, function(v)
+		ns.db.bsSize = v
+	end)
+
+	widgets.bsStackFontSize = Slider(c, "Stack font size", 0, -56, 8, 96, 1, function()
+		return ns.db.bsStackFontSize
+	end, function(v)
+		ns.db.bsStackFontSize = v
+	end)
+
+	widgets.bsTimerFontSize = Slider(c, "Time font size", 0, -112, 8, 96, 1, function()
+		return ns.db.bsTimerFontSize
+	end, function(v)
+		ns.db.bsTimerFontSize = v
+	end)
+
+	widgets.bsTimerDecimals = Slider(c, "Tenths of a second below (0 = whole seconds)", 0, -168, 0, 10, 1, function()
+		return ns.db.bsTimerDecimals
+	end, function(v)
+		ns.db.bsTimerDecimals = v
+	end)
+
+	widgets.bsLowSeconds = Slider(c, "Time turns red at or below (0 = never)", 0, -224, 0, 30, 1, function()
+		return ns.db.bsLowSeconds
+	end, function(v)
+		ns.db.bsLowSeconds = v
+	end)
+
+	widgets.bsShowStacks = Checkbox(c, "Show stack count", 300, 0, function()
+		return ns.db.bsShowStacks
+	end, function(v)
+		ns.db.bsShowStacks = v
+	end)
+
+	widgets.bsShowTimer = Checkbox(c, "Show time left", 300, -30, function()
+		return ns.db.bsShowTimer
+	end, function(v)
+		ns.db.bsShowTimer = v
+	end)
+
+	widgets.bsSwipe = Checkbox(c, "Cooldown swipe on the icon", 300, -60, function()
+		return ns.db.bsSwipe
+	end, function(v)
+		ns.db.bsSwipe = v
+	end)
+
+	widgets.bsCombatOnly = Checkbox(c, "Only show in combat", 300, -90, function()
+		return ns.db.bsCombatOnly
+	end, function(v)
+		ns.db.bsCombatOnly = v
+	end)
+
+	local hint = Label(c, "Fonts and the checkboxes above are built into the display, so a change shows a moment after you stop. Use Unlock to move it.",
+		0, -290, "GameFontHighlightSmall")
+	hint:SetPoint("TOPRIGHT", 0, -290)
+	hint:SetJustifyH("LEFT")
+end
+
+-- External defensives page ---------------------------------------------------
+
+local EXTDEF_ROW_HEIGHT = 38
+local extDefRows = {}
+
+local function ClassLabel(class)
+	local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+	local name = (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[class]) or class
+	return color and ("|c%s%s|r"):format(color.colorStr, name) or name
+end
+
+local function BuildExtDefPage()
+	local page = Page(
+		"extdef",
+		"External defensives",
+		"The big defensives other players put on you (Pain Suppression, Ironbark, Blessing of Sacrifice ...) as a row of icons with the time left. The game draws it, so it works in combat."
+	)
+	local p = Panel(page, "Show external defensives", function()
+		return ns.db.edEnabled
+	end, function(v)
+		ns.db.edEnabled = v
+	end)
+	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	p:SetPoint("BOTTOMRIGHT", 0, 0)
+	widgets.edEnabled = p.toggle
+	local c = p.content
+
+	widgets.edSize = Slider(c, "Icon size", 0, 0, 24, 120, 1, function()
+		return ns.db.edSize
+	end, function(v)
+		ns.db.edSize = v
+	end)
+	widgets.edMax = Slider(c, "Icons shown at once", 0, -56, 1, 8, 1, function()
+		return ns.db.edMax
+	end, function(v)
+		ns.db.edMax = v
+	end)
+	widgets.edTimerFontSize = Slider(c, "Time font size", 0, -112, 8, 48, 1, function()
+		return ns.db.edTimerFontSize
+	end, function(v)
+		ns.db.edTimerFontSize = v
+	end)
+	widgets.edShowTimer = Checkbox(c, "Show time left", 0, -168, function()
+		return ns.db.edShowTimer
+	end, function(v)
+		ns.db.edShowTimer = v
+	end)
+	widgets.edSwipe = Checkbox(c, "Cooldown swipe on the icons", 0, -198, function()
+		return ns.db.edSwipe
+	end, function(v)
+		ns.db.edSwipe = v
+	end)
+	widgets.edCombatOnly = Checkbox(c, "Only show in combat", 0, -228, function()
+		return ns.db.edCombatOnly
+	end, function(v)
+		ns.db.edCombatOnly = v
+	end)
+	local hint = Label(c, "Icon size, time font, time and swipe show a moment after you stop changing them. Use Unlock to move it.", 0, -268,
+		"GameFontHighlightSmall")
+	hint:SetPoint("TOPRIGHT", c, "TOPLEFT", 270, -268)
+	hint:SetJustifyH("LEFT")
+
+	-- Right-hand column: which defensives to show
+	local X = 300
+	Label(c, "Show these defensives", X, 0, "GameFontNormalLarge")
+	local presets = { { "Select all", "all" }, { "Deselect all", "none" }, { "Healers only", "healers" } }
+	local x = X
+	for _, preset in ipairs(presets) do
+		local b = ActionButton(c, preset[1], 94, function()
+			ns.ExtDefPreset(preset[2])
+		end)
+		b:SetPoint("TOPLEFT", x, -26)
+		x = x + 98
+	end
+	widgets.edOthers = Checkbox(c, "Also show defensives not in this list", X - 4, -58, function()
+		return ns.db.edOthers
+	end, function(v)
+		ns.db.edOthers = v
+	end)
+
+	local scroll = CreateFrame("ScrollFrame", nil, c, "UIPanelScrollFrameTemplate")
+	scroll:SetPoint("TOPLEFT", X, -92)
+	scroll:SetPoint("BOTTOMRIGHT", -26, 0)
+	local child = CreateFrame("Frame", nil, scroll)
+	child:SetSize(1, 1)
+	scroll:SetScrollChild(child)
+	scroll:SetScript("OnSizeChanged", function(_, width)
+		child:SetWidth(width)
+	end)
+
+	for i, e in ipairs(ns.EXTDEF_CATALOG) do
+		local row = CreateFrame("Frame", nil, child)
+		row:SetHeight(EXTDEF_ROW_HEIGHT)
+		row:SetPoint("TOPLEFT", 0, -(i - 1) * EXTDEF_ROW_HEIGHT)
+		row:SetPoint("TOPRIGHT", 0, -(i - 1) * EXTDEF_ROW_HEIGHT)
+		row.entry = e
+		row.check = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
+		row.check:SetPoint("LEFT", 0, 0)
+		row.check:SetScript("OnClick", function(self)
+			ns.db.edOff[e.ids[1]] = (not self:GetChecked()) or nil
+			ns.Apply()
+		end)
+		local icon = row:CreateTexture(nil, "ARTWORK")
+		icon:SetSize(28, 28)
+		icon:SetPoint("LEFT", row.check, "RIGHT", 2, 0)
+		icon:SetTexture(C_Spell.GetSpellTexture(e.ids[1]) or 134400)
+		local name = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+		name:SetPoint("TOPLEFT", icon, "TOPRIGHT", 6, -1)
+		name:SetPoint("RIGHT", 0, 0)
+		name:SetJustifyH("LEFT")
+		name:SetWordWrap(false)
+		name:SetText(C_Spell.GetSpellName(e.ids[1]) or e.name)
+		local detail = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+		detail:SetPoint("BOTTOMLEFT", icon, "BOTTOMRIGHT", 6, 1)
+		detail:SetText(ClassLabel(e.class) .. (e.healer and "  |cff33ff99healer|r" or ""))
+		extDefRows[i] = row
+	end
+	child:SetHeight(#ns.EXTDEF_CATALOG * EXTDEF_ROW_HEIGHT)
+
+	widgets.edList = {
+		Refresh = function()
+			for _, row in ipairs(extDefRows) do
+				row.check:SetChecked(not ns.db.edOff[row.entry.ids[1]])
+			end
+		end,
+	}
+end
+
 -- Absorb page ----------------------------------------------------------------
 
 local function BuildAbsorbPage()
@@ -1026,6 +1233,7 @@ local function BuildRemindersPage()
 		"reminders",
 		"Voice reminders",
 		ns.IsDruid() and "Text-to-speech callouts when a cooldown is ready again or a proc happens."
+			or ns.IsDeathKnight() and "A callout when Dancing Rune Weapon comes up, and a text-to-speech callout and action-bar glow when your on-use trinket is ready again."
 			or "Text-to-speech callout and action-bar glow when your on-use trinket is ready again."
 	)
 
@@ -1081,6 +1289,26 @@ local function BuildRemindersPage()
 		else
 			self:SetText("|cffffaa00Not equipped|r - no reminder or glow until you equip it")
 		end
+	end
+
+	if ns.IsDeathKnight() then
+		local w = Panel(page, "Dancing Rune Weapon", function()
+			return ns.db.weaponEnabled
+		end, function(value)
+			ns.db.weaponEnabled = value
+		end)
+		w:SetPoint("TOPLEFT", t, "BOTTOMLEFT", 0, -12)
+		w:SetPoint("TOPRIGHT", t, "BOTTOMRIGHT", 0, -12)
+		w:SetHeight(95)
+		widgets.weaponEnabled = w.toggle
+		local weaponTest = ActionButton(w, "Test", 60, function()
+			PlaySoundFile(ns.WEAPON_SOUND, "Master")
+		end)
+		weaponTest:SetPoint("TOPRIGHT", -8, -8)
+		local weaponText = Label(w.content, "Says \"Weapon\" when Dancing Rune Weapon comes up, whether you cast it or a talent triggers it.",
+			0, 0, "GameFontHighlight")
+		weaponText:SetPoint("TOPRIGHT")
+		weaponText:SetJustifyH("LEFT")
 	end
 
 	if not ns.IsDruid() then
@@ -1267,13 +1495,20 @@ local function BuildMainPanel()
 		Nav("runic", "Runic power bar", function()
 			return ns.db.rpEnabled
 		end)
+		Nav("bone", "Bone Shield", function()
+			return ns.db.bsEnabled
+		end)
 	end
+	Nav("extdef", "External defensives", function()
+		return ns.db.edEnabled
+	end)
 	Nav("absorb", "Absorb shield", function()
 		return ns.db.absorbEnabled
 	end)
 	Nav("reminders", "Voice reminders", function()
 		local db = ns.db
 		return db.trinketEnabled or db.trinketGlow or (druid and (db.heartEnabled or db.apexEnabled))
+			or (ns.IsDeathKnight() and db.weaponEnabled)
 	end)
 
 	local reset = ActionButton(nav, "Reset all", NAV_WIDTH, function()
@@ -1310,7 +1545,9 @@ local function BuildMainPanel()
 	end
 	if ns.IsDeathKnight() then
 		BuildRunicPowerPage()
+		BuildBoneShieldPage()
 	end
+	BuildExtDefPage()
 	BuildAbsorbPage()
 	BuildRemindersPage()
 	if druid then

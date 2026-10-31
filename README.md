@@ -2,16 +2,16 @@
 
 World of Warcraft addon: ability trackers, ability glow, absorb icon, trinket reminders and class helpers (Druid, Death Knight). Copy the `MonroTracker` folder into `World of Warcraft\_retail_\Interface\AddOns\`.
 
-It also has a runic power bar for Death Knights (see below). It works on other classes too: the Druid-only features (Bear Form text, Moonfire indicator, Rage panel, Enrage panel,
+It also has a runic power bar and a Bone Shield tracker for Death Knights (see below). It works on other classes too: the Druid-only features (Bear Form text, Moonfire indicator, Rage panel, Enrage panel,
 Heart of the Wild reminder and Apex proc) stay off and disappear from the settings window, while the class-independent ones keep
-working - **Ability trackers**, **Ability glow**, the **Absorb shield** icon, the **trinket** voice reminder and action-bar glow, the voice
+working - **Ability trackers**, **Ability glow**, the **External defensives** row, the **Absorb shield** icon, the **trinket** voice reminder and action-bar glow, the voice
 selection and the minimap button. (The "Only while Frenzied Regeneration is active" absorb option is Druid-only too.)
 
 Open the configuration with `/mtr` (or `/monrotracker`), or via **Game Menu > Options > AddOns > MonroTracker**.
 
 ## Settings window
 The settings are one window with a sidebar listing every feature: **General**, **Bear Form text**,
-**Moonfire indicator**, **Ability trackers**, **Ability glow**, **Rage panel**, **Enrage panel**, **Absorb shield** and **Voice reminders**. Each feature page groups its options in a titled panel; the panel
+**Moonfire indicator**, **Ability trackers**, **Ability glow**, **Rage panel**, **Enrage panel**, **External defensives**, **Absorb shield** and **Voice reminders**. Each feature page groups its options in a titled panel; the panel
 title is the feature's **on/off checkbox**, and its options are dimmed while the feature is off. A dot next to each
 sidebar entry shows at a glance whether that feature is on (green) or off (grey). **Unlock to move** and
 **Reset all** stay at the bottom of the sidebar on every page.
@@ -98,6 +98,26 @@ a bright double border with an outer halo plus a wash over the bar itself, so it
   work like the rage panel's. Unlike the rage panel it is not tied to a form, so it is shown whenever you are a Death Knight.
 - **Location** - drag it.
 
+#### Bone Shield tracker (Blood Death Knight)
+Blood Death Knight only, shown in the sidebar as **Bone Shield**. An icon with the **time left** on it and your Bone Shield
+**stack count** under it. In combat the client hides Bone Shield from addons altogether (the buff is not even found, secrecy
+level 2), so Lua cannot read or format it. Instead the tracker is drawn by the game itself: a hidden aura container (the 12.1
+engine aura display, the same technique EllesmereUI uses) holds one slot filtered to Bone Shield, and the engine builds the icon,
+the count and the countdown from the real buff, in and out of combat. Our code only styles those parts once, while the button
+is being built; the button is closed to addon code afterwards.
+
+- **Icon size**, **Stack font size** and **Time font size**.
+- **Tenths of a second below** (default 5; 0 = whole seconds only) and **Time turns red at or below** (default 5; 0 = never).
+  The colour is a curve the engine evaluates against the hidden remaining time.
+  Whole seconds are rounded down, so "5" means five full seconds are left.
+- **Show stack count**, **Show time left**, **Cooldown swipe on the icon** and **Only show in combat**. Nothing is shown while
+  Bone Shield is down (no faded icon).
+- Fonts and the checkboxes (and the swipe) are baked into the display, so a change builds a fresh display half a second after
+  you stop moving the slider; already-built displays are reused. Size and position apply at once.
+- **Location** - drag it. Unlocking, or having the settings window open, shows a sample (8 stacks, 12.3s) instead.
+- Stacks under the red limit are not coloured: the stack count is hidden in combat, so there is nothing to compare it with.
+- `/mtr bonedebug` shows whether the engine display was built, its last error, and what Lua itself can read of the buff.
+
 ### 6. Enrage panel
 Druid only. A small panel that appears while an enemy carries an enrage you can Soothe and lists those mobs, the one
 enraged longest first, so you know which one to cast it on.
@@ -141,6 +161,29 @@ enraged longest first, so you know which one to cast it on.
 - It is a display, not a button: targeting and casting are protected actions an addon cannot do for you in combat, so use
   your normal Soothe key or macro (`[@mouseover]` works well) on the marked mob.
 
+### 6b. External defensives
+Works on every class. A row of icons, each with the **time left**, for the big defensives other players put on you: Pain
+Suppression, Guardian Spirit, Ironbark, Life Cocoon, Time Dilation, Blessing of Protection / Sacrifice / Spellwarding, Roar of
+Sacrifice and Lesser Anti-Magic Shell. In combat the client hides other players' buffs from addons, so, like the Bone Shield
+tracker, the row is drawn by the game itself: an engine aura container on you with the filter `HELPFUL|EXTERNAL_DEFENSIVE`, which
+lets through only buffs the game flags as external defensives. Which ones are shown is a spell-ID list the engine evaluates too,
+so your choice keeps working in combat.
+
+- **Show these defensives** - one checkbox per listed defensive (with its class), plus the presets **Select all**,
+  **Deselect all** and **Healers only**. The game does not tell an addon who cast a buff, so *Healers only* means the spells
+  healers cast (Pain Suppression, Guardian Spirit, Ironbark, Life Cocoon, Time Dilation, Blessing of Protection and Sacrifice);
+  a Retribution or Protection Paladin's Blessing counts too. The checkboxes can be adjusted after a preset.
+- **Also show defensives not in this list** - on by default: any other buff the game flags as an external defensive is shown
+  too (new talents, other sources). *Deselect all* and *Healers only* switch it off, *Select all* switches it on.
+- **Icon size**, **Icons shown at once** (1 to 8), **Time font size**, **Show time left**, **Cooldown swipe on the icons**
+  and **Only show in combat**. Size, font and the two toggles are baked into the display, so a change shows a moment after you
+  stop moving the slider; the choice of spells and the count apply at once.
+- **Location** - drag it. Unlocking, or having the settings window open, shows three sample icons instead.
+- `/mtr extdefdebug` shows whether the engine display was built, its last error, how many spells are switched on and off, and
+  what Lua itself can read of the buffs (nothing in combat).
+- Untested in game: the filter token and the engine calls are the ones other addons use for the same job, but the first thing to
+  check if no icon appears is `/mtr extdefdebug`.
+
 ### 7. Absorb shield
 Shows the Power Word: Shield icon with the **total absorb on you** as a full number (e.g. `315081`) while you have any
 absorb - Frenzied Regeneration's and any other source's are included in the number. It hides itself when the absorb is gone.
@@ -170,6 +213,10 @@ callouts), so no sound files are needed.
   recorded clip (`Sounds/Apex.ogg`, Zira voice) with `C_UnitAuras.AddAuraSound` and the game plays it itself; **Test**
   plays the clip. Registration is not allowed in combat inside instanced PvE, so it happens on login/loading screens
   and is retried when combat ends. `/mtr spy` prints your casts and new buffs, and says whether the sound is registered.
+- **Dancing Rune Weapon** (Death Knight) - says "Weapon" when the Dancing Rune Weapon buff (81256) lands on you, whether you
+  cast it or another talent triggers it. Same mechanism as Apex: a recorded clip (`Sounds/Weapon.ogg`, Zira voice) registered
+  with `C_UnitAuras.AddAuraSound`; **Test** plays it. If a talent proc turns out to use a different buff, `/mtr spy` prints
+  the new buffs you gain so its spell ID can be added.
 - **Voice** - pick an installed Windows speech voice, or **Automatic**: the voice chosen in MonroMDTTrack if any,
   otherwise the best installed one (Windows 11 "Natural" voices first). **Test** speaks a sample and prints why if it fails.
 - Speech rate and volume follow the game's Text to Speech settings. Add more voices under Windows
@@ -180,7 +227,7 @@ callouts), so no sound files are needed.
 
 ### Turning features on and off
 Each feature panel has an enable checkbox as its title (Not in Bear Form text, Moonfire proc indicator, Ability
-trackers, Ability glow, Rage panel, Enrage panel, Absorb shield, Heart of the Wild ready, Apex proc), and the minimap button has **Show minimap button** on the General page. A disabled feature is hidden
+trackers, Ability glow, Rage panel, Enrage panel, External defensives, Absorb shield, Heart of the Wild ready, Apex proc, Dancing Rune Weapon, Runic power bar, Bone Shield tracker), and the minimap button has **Show minimap button** on the General page. A disabled feature is hidden
 completely, including in the unlock/preview mode. Individual trackers can still be toggled on their own, and the trinket's voice and glow have their own checkboxes.
 
 ### Positioning
@@ -204,5 +251,7 @@ unlock/lock, **drag** moves it around the minimap. It can be hidden from the Gen
 | `/mtr cddebug` | show what the trinket / Heart of the Wild voice reminders see right now |
 | `/mtr trackerdebug` | show what the client reports for each ability tracker and what the addon makes of it |
 | `/mtr enragedebug` | show what the client lets the enrage panel read on each enemy nameplate |
+| `/mtr bonedebug` | show whether the Bone Shield display was built and what Lua can read of the buff |
+| `/mtr extdefdebug` | show whether the external defensives display was built and which spells are switched on |
 | `/mtr rpdebug` | show what the client reports for the runic power bar and its glow |
 | `/mtr enragelog [clear\|on\|off]` | the enrage panel's combat diagnostics, saved on `/reload` |

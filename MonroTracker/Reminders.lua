@@ -1,7 +1,7 @@
 local ADDON_NAME, ns = ...
 
--- Voice reminders: says "Trinket ready" / "Heart of the Wild ready" when the cooldown comes back, and "Apex" when
--- Wild Guardian procs.
+-- Voice reminders: says "Trinket ready" / "Heart of the Wild ready" when the cooldown comes back, "Apex" when
+-- Wild Guardian procs and "Weapon" when Dancing Rune Weapon comes up.
 
 local HEART_OF_THE_WILD_IDS = {
 	1261867, -- Midnight
@@ -206,45 +206,69 @@ function ns.TrinketCooling()
 	end
 end
 
--- Apex proc: says "Apex" when Wild Guardian (Guardian apex talent) awakens a spirit -------------------------
+-- Proc callouts: "Apex" (Druid) and "Weapon" (Blood Death Knight) ---------------------------------------------
 
-local ANSWERED_CALLING_BUFF = 1308647 -- "Accompanied by a guardian spirit", 8 sec
-local ANSWERED_CALLING_SUMMON = 1308399 -- hidden spell that summons the spirit
-local APEX_DEBOUNCE = 1 -- the summon cast and the buff arrive together; speak once
+-- Since 12.1 addons cannot see auras appear, but the engine can play a sound file when a given aura lands on a unit.
+-- So each callout is a baked clip (Zira voice) the engine plays itself; the text-to-speech path below is only the
+-- fallback for clients without C_UnitAuras.AddAuraSound. The spells in `casts` share their name with the buff, and
+-- matching by name too survives the IDs changing between patches.
+local SOUND_DIR = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Sounds\\"
+ns.APEX_SOUND = SOUND_DIR .. "Apex.ogg"
+ns.WEAPON_SOUND = SOUND_DIR .. "Weapon.ogg"
 
-local apexActive = false
-local apexSpokenAt = 0
+local PROC_DEBOUNCE = 1 -- the summon cast and the buff arrive together; speak once
 
--- Both spells are named "Answered Calling"; matching by name too survives the IDs changing between patches.
-local function ApexName()
-	return C_Spell.GetSpellName(ANSWERED_CALLING_BUFF) or "Answered Calling"
+local procs = {
+	{
+		-- Wild Guardian (Guardian apex talent) awakens a spirit. The summon is a hidden spell.
+		text = "Apex",
+		file = ns.APEX_SOUND,
+		buff = 1308647, -- "Answered Calling": "Accompanied by a guardian spirit", 8 sec
+		casts = { 1308399 },
+		enabled = function()
+			return ns.IsDruid() and ns.db.apexEnabled
+		end,
+	},
+	{
+		-- Dancing Rune Weapon, cast by you or triggered by another talent; both put the same buff on you.
+		text = "Weapon",
+		file = ns.WEAPON_SOUND,
+		buff = 81256,
+		casts = { 49028 },
+		enabled = function()
+			return ns.IsDeathKnight() and ns.db.weaponEnabled
+		end,
+	},
+}
+
+local function ProcName(p)
+	return C_Spell.GetSpellName(p.buff) or p.text
 end
 
-local function IsApexSpell(spellID)
-	if spellID == ANSWERED_CALLING_SUMMON or spellID == ANSWERED_CALLING_BUFF then
+local function IsProcSpell(p, spellID)
+	if spellID == p.buff then
 		return true
 	end
+	for _, id in ipairs(p.casts) do
+		if spellID == id then
+			return true
+		end
+	end
 	local name = C_Spell.GetSpellName(spellID)
-	return name ~= nil and not IsSecret(name) and name == ApexName()
+	return name ~= nil and not IsSecret(name) and name == ProcName(p)
 end
 
-local function HasApexBuff()
-	local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, ANSWERED_CALLING_BUFF)
+local function HasProcBuff(p)
+	local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, p.buff)
 	if ok and aura ~= nil then
 		return true
 	end
 	if C_UnitAuras.GetAuraDataBySpellName then
-		ok, aura = pcall(C_UnitAuras.GetAuraDataBySpellName, "player", ApexName(), "HELPFUL")
+		ok, aura = pcall(C_UnitAuras.GetAuraDataBySpellName, "player", ProcName(p), "HELPFUL")
 		return ok and aura ~= nil
 	end
 	return false
 end
-
--- Since 12.1 addons cannot see auras appear, but the engine can play a sound file when a given aura lands on a unit.
--- So "Apex" is a baked clip (Zira voice) the engine plays itself; the text-to-speech path below is only the fallback
--- for clients without C_UnitAuras.AddAuraSound.
-ns.APEX_SOUND = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Sounds\\Apex.ogg"
-local apexHandles = {}
 
 local function HasAuraSoundAPI()
 	return C_UnitAuras and C_UnitAuras.AddAuraSound and C_UnitAuras.RemoveAuraSound and Enum
@@ -257,67 +281,65 @@ local function CanRegisterAuraSound()
 	return instanceType == "none" or instanceType == "pvp" or instanceType == "arena" or not InCombatLockdown()
 end
 
-local function RemoveApexSound()
-	for i = #apexHandles, 1, -1 do
-		pcall(C_UnitAuras.RemoveAuraSound, apexHandles[i])
-		apexHandles[i] = nil
+local function RemoveProcSound(p)
+	if p.handle then
+		pcall(C_UnitAuras.RemoveAuraSound, p.handle)
+		p.handle = nil
 	end
 end
 
--- Registers or removes the engine sound to match the setting; cheap when nothing changes. Called from ns.Apply, which
+-- Registers or removes each engine sound to match its setting; cheap when nothing changes. Called from ns.Apply, which
 -- also runs when combat ends, so a registration refused in combat is retried then.
-function ns.ApplyApexSound()
-	if not (ns.db and HasAuraSoundAPI()) then
+function ns.ApplyAuraSounds()
+	if not (ns.db and HasAuraSoundAPI()) or not CanRegisterAuraSound() then
 		return
 	end
-	local want = ns.IsDruid() and ns.db.apexEnabled and true or false
-	if want == (#apexHandles > 0) or not CanRegisterAuraSound() then
-		return
-	end
-	if not want then
-		RemoveApexSound()
-		return
-	end
-	local ok, handle = pcall(C_UnitAuras.AddAuraSound, Enum.UnitAuraSoundTrigger.Added, {
-		unitToken = "player",
-		spellID = ANSWERED_CALLING_BUFF,
-		soundFileName = ns.APEX_SOUND,
-		outputChannel = "Master",
-	})
-	if ok and handle then
-		apexHandles[#apexHandles + 1] = handle
+	for _, p in ipairs(procs) do
+		local want = p.enabled() and true or false
+		if want and not p.handle then
+			local ok, handle = pcall(C_UnitAuras.AddAuraSound, Enum.UnitAuraSoundTrigger.Added, {
+				unitToken = "player",
+				spellID = p.buff,
+				soundFileName = p.file,
+				outputChannel = "Master",
+			})
+			if ok and handle then
+				p.handle = handle
+			end
+		elseif not want then
+			RemoveProcSound(p)
+		end
 	end
 end
 
-function ns.ApexSoundRegistered()
-	return #apexHandles > 0
-end
-
-local function AnnounceApex()
+local function AnnounceProc(p)
 	local now = GetTime()
-	if ns.db.apexEnabled and not ns.ApexSoundRegistered() and now - apexSpokenAt > APEX_DEBOUNCE then
-		apexSpokenAt = now
-		ns.Speak("Apex")
+	if p.enabled() and not p.handle and now - (p.spokenAt or 0) > PROC_DEBOUNCE then
+		p.spokenAt = now
+		ns.Speak(p.text)
 	end
 end
 
--- The buff appearing catches procs even if the summon cast is not reported. Aura details can be hidden in instances.
-local function CheckApex()
-	if not ns.IsDruid() then
-		return
+-- The buff appearing catches procs even if the cast is not reported. Aura details can be hidden in instances.
+local function CheckProcs()
+	for _, p in ipairs(procs) do
+		if p.enabled() then
+			local active = HasProcBuff(p)
+			if active and not p.active then
+				AnnounceProc(p)
+			end
+			p.active = active
+		else
+			p.active = false
+		end
 	end
-	local active = HasApexBuff()
-	if active and not apexActive then
-		AnnounceApex()
-	end
-	apexActive = active
 end
 
 local function CheckAll()
 	for _, w in ipairs(watchers) do
 		Check(w)
 	end
-	CheckApex()
+	CheckProcs()
 end
 
 local function OnCast(spellID)
@@ -325,8 +347,10 @@ local function OnCast(spellID)
 		return
 	end
 	-- A new spirit while one is already out only refreshes the buff, so the cast is what catches it.
-	if ns.IsDruid() and IsApexSpell(spellID) then
-		AnnounceApex()
+	for _, p in ipairs(procs) do
+		if p.enabled() and IsProcSpell(p, spellID) then
+			AnnounceProc(p)
+		end
 	end
 	-- A successful use starts the remembered (or base) cooldown, for when the client hides or misreports it.
 	local now = GetTime()
@@ -395,9 +419,12 @@ function ns.ToggleSpy()
 	else
 		spyFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 		spyFrame:RegisterUnitEvent("UNIT_AURA", "player")
-		ns.Print(("spy on - printing your casts and new buffs (Apex looks for %d / %d, or the name \"%s\"; " ..
-			"engine sound %s). Run /mtr spy again to stop."):format(ANSWERED_CALLING_BUFF, ANSWERED_CALLING_SUMMON,
-			ApexName(), ns.ApexSoundRegistered() and "registered" or "NOT registered"))
+		local parts = {}
+		for _, p in ipairs(procs) do
+			parts[#parts + 1] = ("%s looks for %d, or the name \"%s\" (engine sound %s)"):format(p.text, p.buff, ProcName(p),
+				p.handle and "registered" or "NOT registered")
+		end
+		ns.Print("spy on - printing your casts and new buffs. " .. table.concat(parts, "; ") .. ". Run /mtr spy again to stop.")
 	end
 end
 
@@ -415,8 +442,10 @@ function ns.InitReminders()
 			OnCast(spellID)
 		elseif event == "PLAYER_ENTERING_WORLD" and CanRegisterAuraSound() then
 			-- Start clean after a loading screen in case the engine dropped the registration.
-			RemoveApexSound()
-			ns.ApplyApexSound()
+			for _, p in ipairs(procs) do
+				RemoveProcSound(p)
+			end
+			ns.ApplyAuraSounds()
 		end
 		CheckAll()
 	end)

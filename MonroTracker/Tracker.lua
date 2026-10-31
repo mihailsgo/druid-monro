@@ -191,6 +191,9 @@ local casts = { total = 0, hidden = 0, log = {} }
 -- One use of an ability can report several casts: the trigger and the effect it fires (Charge casts Charge twice, with
 -- different IDs). Casts of the same ability closer together than this are one use, or a 2-charge ability counts both.
 local SAME_USE = 1
+-- ...and a cast under another ID than the one counted is the same use for longer: Death Grip's pull is reported as a
+-- second cast (another ID, same name) as the target arrives, which can be more than a second after the grip.
+local SAME_USE_OTHER_ID = 4
 
 -- A use of the ability: starts the remembered (or base) cooldown, or spends a charge, for when the client hides or
 -- misreports it.
@@ -245,7 +248,8 @@ local function OnCast(castID)
 	for _, id in ipairs(Watched()) do
 		if SameSpell(id, castID) then
 			local s = GetState(id)
-			local repeated = s.castAt ~= nil and now - s.castAt < SAME_USE
+			local repeated = s.castAt ~= nil and (now - s.castAt < SAME_USE
+				or (s.castID ~= castID and now - s.castAt < SAME_USE_OTHER_ID))
 			table.insert(casts.log, ("%s %d %s%s"):format(date("%H:%M:%S"), castID, C_Spell.GetSpellName(castID) or "?",
 				repeated and " (same use, not counted)" or ""))
 			if #casts.log > 6 then
@@ -253,7 +257,7 @@ local function OnCast(castID)
 			end
 			s.cast = true
 			if not repeated then
-				s.castAt = now
+				s.castAt, s.castID = now, castID
 				CountUse(id, s, now)
 			end
 		end

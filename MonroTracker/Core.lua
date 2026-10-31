@@ -45,6 +45,31 @@ ns.defaults = {
 	rpX = 0,
 	rpY = -100,
 
+	bsEnabled = true, -- Blood Death Knight only: Bone Shield icon with its stacks and time left, drawn by the engine so it works in combat
+	bsSize = 64,
+	bsSwipe = true, -- cooldown swipe over the icon
+	bsShowStacks = true,
+	bsStackFontSize = 28,
+	bsShowTimer = true,
+	bsTimerFontSize = 18,
+	bsTimerDecimals = 5, -- show tenths of a second below this many seconds; 0 = whole seconds only
+	bsLowSeconds = 5, -- timer turns red at or below this many seconds left; 0 = never
+	bsCombatOnly = false,
+	bsX = 0,
+	bsY = -170,
+
+	edEnabled = true, -- row of the external defensives other players put on you, drawn by the engine so it works in combat
+	edSize = 48,
+	edMax = 4, -- icons shown at once (1 to 8)
+	edSwipe = true, -- cooldown swipe over the icons
+	edShowTimer = true,
+	edTimerFontSize = 16,
+	edCombatOnly = false,
+	edOthers = true, -- also show external defensives that are not in the list on the page (unless switched off there)
+	edOff = {}, -- first spell ID of each listed defensive that is switched off, see ns.EXTDEF_CATALOG
+	edX = -260,
+	edY = 40,
+
 	enrageEnabled = true, -- Druid only: panel listing the mobs that are enraged right now, i.e. where to cast Soothe
 	enrageSay = true, -- say "Soothe" when a mob enrages
 	enrageMarker = true, -- Soothe icon over the enraged mob's nameplate
@@ -73,6 +98,7 @@ ns.defaults = {
 	dkHeartStrikeDecay = true, -- Death Knight: glow Heart Strike on the action bars while the Death and Decay buff is on you
 	heartEnabled = true, -- "Heart of the Wild ready"
 	apexEnabled = true, -- "Apex" when Wild Guardian's Answered Calling procs
+	weaponEnabled = true, -- Death Knight: "Weapon" when Dancing Rune Weapon comes up, cast by you or triggered by a talent
 	cooldownMemory = {}, -- "item:<id>" / "spell:<id>" -> longest cooldown seen, used when the client hides cooldowns
 
 	minimap = { hide = false, angle = 200 }, -- minimap button; angle in degrees around the minimap
@@ -105,6 +131,10 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1)
 		if old.moonCountX ~= nil then
 			old.indX, old.indY, old.indicatorSize = old.moonCountX, old.moonCountY, old.moonCountSize
 		end
+		-- The Bone Shield voice reminder was replaced by the Bone Shield tracker.
+		for _, k in ipairs({ "boneEnabled", "boneStacks", "boneSeconds", "boneLossSeconds", "boneLog", "bsShowMissing" }) do
+			old[k] = nil
+		end
 		for _, k in ipairs({ "moonCountEnabled", "moonCountSize", "moonCountFontSize", "moonCountColor", "moonCountX", "moonCountY" }) do
 			old[k] = nil
 		end
@@ -131,6 +161,8 @@ function ns.PrintHelp()
 	print("  /mtr cddebug - show what the trinket / Heart of the Wild voice reminders see right now")
 	print("  /mtr trackerdebug - show what the client reports for each ability tracker and what the addon makes of it")
 	print("  /mtr enragedebug - show what the client lets the enrage panel read on each enemy nameplate")
+	print("  /mtr bonedebug - show what the Bone Shield tracker reads and whether the engine display is built")
+	print("  /mtr extdefdebug - show whether the external defensives display is built and what is switched on")
 	print("  /mtr rpdebug - show what the client reports for the runic power bar and its glow")
 	print("  /mtr enragelog [clear|on|off] - the enrage panel notes what the client returns in combat; saved on /reload")
 end
@@ -173,6 +205,10 @@ SlashCmdList["MONROTRACKER"] = function(msg)
 		ns.TrackerDebug()
 	elseif cmd == "enragedebug" then
 		ns.EnrageDebug()
+	elseif cmd == "bonedebug" then
+		ns.BoneShieldDebug()
+	elseif cmd == "extdefdebug" then
+		ns.ExtDefDebug()
 	elseif cmd == "rpdebug" then
 		ns.RunicPowerDebug()
 	elseif cmd == "enragelog" or cmd:sub(1, 10) == "enragelog " then
