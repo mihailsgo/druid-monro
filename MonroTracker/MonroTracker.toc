@@ -1,6 +1,6 @@
 ## Interface: 120105
 ## Title: MonroTracker
-## Notes: Ability trackers, ability glow, absorb icon, trinket voice/glow and class helpers (Druid: Bear Form text, Moonfire proc, rage and enrage/Soothe panels; Death Knight: runic power bar and Bone Shield tracker; all classes: external defensives row).
+## Notes: Ability trackers, ability glow, absorb icon, trinket voice/glow and class helpers (Druid: Bear Form text, Moonfire proc, rage, enrage/Soothe panels and dispel voice callouts; Death Knight: runic power bar and Bone Shield tracker; all classes: external defensives row).
 ## Author: mihailsgo
 ## Version: 0.1.0
 ## SavedVariables: MonroTrackerDB
@@ -17,6 +17,7 @@ RunicPower.lua
 BoneShield.lua
 ExternalDefensives.lua
 Enrage.lua
+Dispel.lua
 Absorb.lua
 Voice.lua
 Reminders.lua

@@ -1455,6 +1455,76 @@ local function BuildEnragePage()
 	hint:SetJustifyH("LEFT")
 end
 
+-- Dispel page ----------------------------------------------------------------
+
+local function BuildDispelPage()
+	local page = Page(
+		"dispel",
+		"Dispel",
+		"Says what to dispel when someone in your group has it and your dispel is ready. Remove Corruption (Nature's Cure) removes poison and curse."
+	)
+	local p = Panel(page, "Dispel callouts", function()
+		return ns.db.dispelEnabled
+	end, function(v)
+		ns.db.dispelEnabled = v
+	end)
+	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
+	p:SetHeight(350)
+	widgets.dispelEnabled = p.toggle
+	local c = p.content
+
+	widgets.dispelPoison = Checkbox(c, "Say \"Dispel poison\"", 0, 0, function()
+		return ns.db.dispelPoison
+	end, function(v)
+		ns.db.dispelPoison = v
+	end)
+	local poisonTest = ActionButton(c, "Test", 60, function()
+		SpeakOrReport("Dispel poison")
+	end)
+	poisonTest:SetPoint("TOPLEFT", 300, -2)
+
+	widgets.dispelCurse = Checkbox(c, "Say \"Dispel curse\"", 0, -32, function()
+		return ns.db.dispelCurse
+	end, function(v)
+		ns.db.dispelCurse = v
+	end)
+	local curseTest = ActionButton(c, "Test", 60, function()
+		SpeakOrReport("Dispel curse")
+	end)
+	curseTest:SetPoint("TOPLEFT", 300, -34)
+
+	widgets.dispelSelf = Checkbox(c, "Also announce debuffs on myself", 0, -72, function()
+		return ns.db.dispelSelf
+	end, function(v)
+		ns.db.dispelSelf = v
+	end)
+
+	widgets.dispelCombatOnly = Checkbox(c, "Only in combat", 0, -102, function()
+		return ns.db.dispelCombatOnly
+	end, function(v)
+		ns.db.dispelCombatOnly = v
+	end)
+
+	widgets.dispelStatus = Label(c, "", 0, -146, "GameFontHighlight")
+	widgets.dispelStatus:SetPoint("TOPRIGHT", 0, -146)
+	widgets.dispelStatus:SetJustifyH("LEFT")
+	widgets.dispelStatus.Refresh = function(self)
+		if ns.KnowsDispel and ns.KnowsDispel() then
+			self:SetText("|cff33ff99Dispel known|r - announced when it is off cooldown and a group member in range carries a debuff you can remove")
+		else
+			self:SetText("|cffffaa00Remove Corruption not found in your spellbook|r - no callouts until you have it")
+		end
+	end
+
+	local hint = Label(c, "The callout repeats every few seconds while the debuff stays and your dispel is ready, and stops "
+		.. "while the dispel is on cooldown. Out of combat and in the open world the addon reads each member's debuffs. "
+		.. "In dungeon combat the client hides them, so the addon asks the game to filter by dispel type instead; whether "
+		.. "that stays readable there is what /mtr dispeldebug shows.", 0, -196, "GameFontHighlightSmall")
+	hint:SetPoint("TOPRIGHT", 0, -196)
+	hint:SetJustifyH("LEFT")
+end
+
 -- Main panel -----------------------------------------------------------------
 
 local function BuildMainPanel()
@@ -1497,6 +1567,9 @@ local function BuildMainPanel()
 		end)
 		Nav("enrage", "Enrage panel", function()
 			return ns.db.enrageEnabled
+		end)
+		Nav("dispel", "Dispel", function()
+			return ns.db.dispelEnabled
 		end)
 	end
 	if ns.IsDeathKnight() then
@@ -1560,6 +1633,7 @@ local function BuildMainPanel()
 	BuildRemindersPage()
 	if druid then
 		BuildEnragePage()
+		BuildDispelPage()
 	end
 	SelectPage(currentPage)
 

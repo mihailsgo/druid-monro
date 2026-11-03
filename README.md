@@ -11,7 +11,7 @@ Open the configuration with `/mtr` (or `/monrotracker`), or via **Game Menu > Op
 
 ## Settings window
 The settings are one window with a sidebar listing every feature: **General**, **Bear Form text**,
-**Moonfire indicator**, **Ability trackers**, **Ability glow**, **Rage panel**, **Enrage panel**, **External defensives**, **Absorb shield** and **Voice reminders**. Each feature page groups its options in a titled panel; the panel
+**Moonfire indicator**, **Ability trackers**, **Ability glow**, **Rage panel**, **Enrage panel**, **Dispel** (Druid), **External defensives**, **Absorb shield** and **Voice reminders**. Each feature page groups its options in a titled panel; the panel
 title is the feature's **on/off checkbox**, and its options are dimmed while the feature is off. A dot next to each
 sidebar entry shows at a glance whether that feature is on (green) or off (grey). **Unlock to move** and
 **Reset all** stay at the bottom of the sidebar on every page.
@@ -161,6 +161,22 @@ enraged longest first, so you know which one to cast it on.
 - It is a display, not a button: targeting and casting are protected actions an addon cannot do for you in combat, so use
   your normal Soothe key or macro (`[@mouseover]` works well) on the marked mob.
 
+### 6a. Dispel callouts
+Druid only. Says **"Dispel poison"** (or **"Dispel curse"**) when someone in your group carries one and your dispel (Remove
+Corruption, or Nature's Cure for Restoration) is ready, through the same voice as the voice reminders. The **Dispel** page
+has a checkbox and a Test button per type, **Also announce debuffs on myself** and **Only in combat**.
+
+- It checks yourself and the party (or the raid), skipping anyone dead, offline or out of range. Only debuffs you can
+  remove count; Magic is left out because Guardian cannot dispel it.
+- The callout repeats every 6 seconds while the debuff stays and the dispel is ready, and goes quiet while it is on
+  cooldown. A cast of yours starts an 8 second timer, because the client hides spell cooldowns in combat. When both
+  poison and curse are present, poison is said first.
+- **How it sees the debuffs.** Out of combat and in the open world the addon reads each debuff's dispel type. In dungeon
+  combat the client hides that, so the addon falls back to invisible engine aura containers (one per member and type,
+  filtered to debuffs you can dispel, by dispel type) and reads whether each one is holding an icon, the same width trick
+  the enrage marker uses. Not verified in game yet: `/mtr dispeldebug` shows per member whether the type was readable and
+  what each container's width says.
+
 ### 6b. External defensives
 Works on every class. A row of icons, each with the **time left**, for the big defensives other players put on you: Pain
 Suppression, Guardian Spirit, Ironbark, Life Cocoon, Time Dilation, Blessing of Protection / Sacrifice / Spellwarding, Roar of
@@ -228,7 +244,7 @@ callouts), so no sound files are needed.
 
 ### Turning features on and off
 Each feature panel has an enable checkbox as its title (Not in Bear Form text, Moonfire proc indicator, Ability
-trackers, Ability glow, Rage panel, Enrage panel, External defensives, Absorb shield, Heart of the Wild ready, Apex proc, Dancing Rune Weapon, Runic power bar, Bone Shield tracker), and the minimap button has **Show minimap button** on the General page. A disabled feature is hidden
+trackers, Ability glow, Rage panel, Enrage panel, Dispel callouts, External defensives, Absorb shield, Heart of the Wild ready, Apex proc, Dancing Rune Weapon, Runic power bar, Bone Shield tracker), and the minimap button has **Show minimap button** on the General page. A disabled feature is hidden
 completely, including in the unlock/preview mode. Individual trackers can still be toggled on their own, and the trinket's voice and glow have their own checkboxes.
 
 ### Positioning
@@ -252,6 +268,7 @@ unlock/lock, **drag** moves it around the minimap. It can be hidden from the Gen
 | `/mtr cddebug` | show what the trinket / Heart of the Wild voice reminders see right now |
 | `/mtr trackerdebug` | show what the client reports for each ability tracker and what the addon makes of it |
 | `/mtr enragedebug` | show what the client lets the enrage panel read on each enemy nameplate |
+| `/mtr dispeldebug` | show what the dispel callout can read on each group member and whether its containers are built |
 | `/mtr bonedebug` | show whether the Bone Shield display was built and what Lua can read of the buff |
 | `/mtr extdefdebug` | show whether the external defensives display was built and which spells are switched on |
 | `/mtr rpdebug` | show what the client reports for the runic power bar and its glow |

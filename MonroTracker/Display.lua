@@ -118,6 +118,9 @@ function ns.Apply()
 	if ns.ApplyEnrage then
 		ns.ApplyEnrage()
 	end
+	if ns.ApplyDispel then
+		ns.ApplyDispel()
+	end
 	if ns.UpdateGlows then
 		ns.UpdateGlows()
 	end
@@ -173,6 +176,9 @@ function ns.InitDisplay()
 	end
 	if ns.IsDruid() and ns.InitEnrage then
 		ns.InitEnrage()
+	end
+	if ns.IsDruid() and ns.InitDispel then
+		ns.InitDispel()
 	end
 	if ns.IsDeathKnight() and ns.InitRunicPower then
 		ns.InitRunicPower()

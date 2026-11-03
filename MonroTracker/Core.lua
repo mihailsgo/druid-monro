@@ -83,6 +83,12 @@ ns.defaults = {
 	enrageX = 260,
 	enrageY = 40,
 
+	dispelEnabled = true, -- Druid only: says "Dispel poison" / "Dispel curse" when someone in your group has one and your dispel is ready
+	dispelPoison = true,
+	dispelCurse = true,
+	dispelSelf = true, -- also announce debuffs on yourself
+	dispelCombatOnly = false,
+
 	absorbEnabled = true, -- Power Word: Shield icon with the total absorb on you, shown while you have any absorb
 	absorbFrenziedOnly = false, -- only while Frenzied Regeneration is active
 	absorbSize = 64,
@@ -162,6 +168,7 @@ function ns.PrintHelp()
 	print("  /mtr cddebug - show what the trinket / Heart of the Wild voice reminders see right now")
 	print("  /mtr trackerdebug - show what the client reports for each ability tracker and what the addon makes of it")
 	print("  /mtr enragedebug - show what the client lets the enrage panel read on each enemy nameplate")
+	print("  /mtr dispeldebug - show what the client lets the dispel callout read on each group member")
 	print("  /mtr bonedebug - show what the Bone Shield tracker reads and whether the engine display is built")
 	print("  /mtr extdefdebug - show whether the external defensives display is built and what is switched on")
 	print("  /mtr rpdebug - show what the client reports for the runic power bar and its glow")
@@ -206,6 +213,8 @@ SlashCmdList["MONROTRACKER"] = function(msg)
 		ns.TrackerDebug()
 	elseif cmd == "enragedebug" then
 		ns.EnrageDebug()
+	elseif cmd == "dispeldebug" then
+		ns.DispelDebug()
 	elseif cmd == "bonedebug" then
 		ns.BoneShieldDebug()
 	elseif cmd == "extdefdebug" then
