@@ -44,6 +44,8 @@ ns.defaults = {
 	cpFullColor = { r = 1, g = 0.25, b = 0.1 },
 	cpAsNumber = false, -- show the count as a number instead of segments
 	cpFontSize = 36, -- size of that number
+	cpGlow = true, -- pulsing border while you have at least cpGlowAt combo points
+	cpGlowAt = 5,
 	cpCombatOnly = false,
 	cpX = 0,
 	cpY = -130,

@@ -6,6 +6,8 @@ local DEFAULT_MAX = 5 -- used when the client hides the maximum
 local PREVIEW_POINTS = 3 -- shown while positioning or styling outside Cat Form
 
 local frame, bars, text
+local glow, glowAnim
+local glowBars = {}
 local segments = {}
 local shownCount = 0 -- segments currently laid out
 
@@ -61,6 +63,26 @@ local function Layout(n)
 	shownCount = n
 end
 
+-- The glow is a set of status bars (a border and an outer halo around the panel) whose range is just below the chosen
+-- number of points up to it: they fill (and so show) exactly when you have at least that many. The bar setters accept
+-- values the client hides in combat, so this never has to read or compare the count.
+local function UpdateGlow(cur)
+	local db = ns.db
+	if not db.cpGlow then
+		glow:Hide()
+		return
+	end
+	glow:Show()
+	if not glowAnim:IsPlaying() then
+		glowAnim:Play()
+	end
+	local at = db.cpGlowAt
+	for _, g in ipairs(glowBars) do
+		g:SetMinMaxValues(at - 1, at)
+		g:SetValue(ns.IsPreview() and at or cur)
+	end
+end
+
 -- Cheap pass for power events: only the segment values change (and the layout when the maximum changes).
 local function UpdateCombo()
 	if not frame or not frame:IsShown() then
@@ -79,6 +101,7 @@ local function UpdateCombo()
 		segments[i].fill:SetValue(cur)
 		segments[i].full:SetValue(cur)
 	end
+	UpdateGlow(cur)
 
 	if ns.db.cpAsNumber then
 		-- Formatting fails if the client refuses the hidden value; then the segments are shown instead of a blank panel.
@@ -195,6 +218,49 @@ function ns.InitComboPoints()
 
 		segments[i] = seg
 	end
+
+	-- Glow at the chosen number of points: a pulsing golden frame just outside the panel (see UpdateGlow).
+	glow = CreateFrame("Frame", nil, frame)
+	glow:SetAllPoints()
+	glow:SetFrameLevel(frame:GetFrameLevel() + 10)
+	glow:Hide()
+	local function GateBar()
+		local g = CreateFrame("StatusBar", nil, glow)
+		g:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
+		g:GetStatusBarTexture():SetBlendMode("ADD")
+		g:SetMinMaxValues(0, 1)
+		g:SetValue(0)
+		glowBars[#glowBars + 1] = g
+		return g
+	end
+	-- A border `t` thick whose outer edge is `o` outside the panel, in the given color.
+	local function Ring(o, t, r, g, b, a)
+		local function Edge(p1, x1, y1, p2, x2, y2, w, h)
+			local s = GateBar()
+			s:SetStatusBarColor(r, g, b, a)
+			s:SetPoint(p1, frame, p1, x1, y1)
+			s:SetPoint(p2, frame, p2, x2, y2)
+			if w then
+				s:SetWidth(w)
+			end
+			if h then
+				s:SetHeight(h)
+			end
+		end
+		Edge("TOPLEFT", -o, o, "TOPRIGHT", o, o, nil, t)
+		Edge("BOTTOMLEFT", -o, -o, "BOTTOMRIGHT", o, -o, nil, t)
+		Edge("TOPLEFT", -o, o, "BOTTOMLEFT", -o, -o, t, nil)
+		Edge("TOPRIGHT", o, o, "BOTTOMRIGHT", o, -o, t, nil)
+	end
+	Ring(8, 3, 1, 0.8, 0.2, 0.45) -- soft outer halo
+	Ring(4, 4, 1, 0.9, 0.35, 1) -- bright border
+	glowAnim = glow:CreateAnimationGroup()
+	glowAnim:SetLooping("BOUNCE")
+	local fade = glowAnim:CreateAnimation("Alpha")
+	fade:SetFromAlpha(1)
+	fade:SetToAlpha(0.35)
+	fade:SetDuration(0.4)
+	fade:SetSmoothing("IN_OUT")
 
 	local events = CreateFrame("Frame")
 	events:RegisterUnitEvent("UNIT_POWER_UPDATE", "player")

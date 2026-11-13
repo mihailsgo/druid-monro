@@ -906,59 +906,74 @@ local function BuildComboPointsPage()
 	end)
 	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
 	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
-	p:SetHeight(450)
+	p:SetHeight(436)
 	widgets.cpEnabled = p.toggle
 	local c = p.content
 
-	widgets.cpAsNumber = Checkbox(c, "Show as a number instead of a bar", 0, 0, function()
+	-- The settings area is narrow, so the checkboxes and the two colors sit in two columns.
+	local COL2 = 215
+
+	widgets.cpAsNumber = Checkbox(c, "Show as a number", 0, 0, function()
 		return ns.db.cpAsNumber
 	end, function(v)
 		ns.db.cpAsNumber = v
 	end)
 
-	widgets.cpWidth = Slider(c, "Bar width", 0, -34, 50, 600, 1, function()
-		return ns.db.cpWidth
-	end, function(v)
-		ns.db.cpWidth = v
-	end)
-
-	widgets.cpHeight = Slider(c, "Bar height", 0, -90, 6, 100, 1, function()
-		return ns.db.cpHeight
-	end, function(v)
-		ns.db.cpHeight = v
-	end)
-
-	widgets.cpGap = Slider(c, "Space between points", 0, -146, 0, 20, 1, function()
-		return ns.db.cpGap
-	end, function(v)
-		ns.db.cpGap = v
-	end)
-
-	widgets.cpFontSize = Slider(c, "Number size", 0, -202, 12, 96, 1, function()
-		return ns.db.cpFontSize
-	end, function(v)
-		ns.db.cpFontSize = v
-	end)
-
-	Label(c, "Color", 0, -258)
-	widgets.cpColor = ColorSwatch(c, 0, -278, function()
-		return ns.db.cpColor
-	end)
-
-	widgets.cpCombatOnly = Checkbox(c, "Only show in combat", 0, -316, function()
+	widgets.cpCombatOnly = Checkbox(c, "Only show in combat", COL2, 0, function()
 		return ns.db.cpCombatOnly
 	end, function(v)
 		ns.db.cpCombatOnly = v
 	end)
 
-	widgets.cpFullHighlight = Checkbox(c, "Recolor at the maximum number of points", 0, -346, function()
+	widgets.cpFullHighlight = Checkbox(c, "Recolor at the maximum", 0, -30, function()
 		return ns.db.cpFullHighlight
 	end, function(v)
 		ns.db.cpFullHighlight = v
 	end)
 
-	Label(c, "Color at the maximum", 0, -386)
-	widgets.cpFullColor = ColorSwatch(c, 0, -406, function()
+	widgets.cpGlow = Checkbox(c, "Glow at the chosen points", COL2, -30, function()
+		return ns.db.cpGlow
+	end, function(v)
+		ns.db.cpGlow = v
+	end)
+
+	widgets.cpWidth = Slider(c, "Bar width", 0, -70, 50, 600, 1, function()
+		return ns.db.cpWidth
+	end, function(v)
+		ns.db.cpWidth = v
+	end)
+
+	widgets.cpHeight = Slider(c, "Bar height", 0, -120, 6, 100, 1, function()
+		return ns.db.cpHeight
+	end, function(v)
+		ns.db.cpHeight = v
+	end)
+
+	widgets.cpGap = Slider(c, "Space between points", 0, -170, 0, 20, 1, function()
+		return ns.db.cpGap
+	end, function(v)
+		ns.db.cpGap = v
+	end)
+
+	widgets.cpFontSize = Slider(c, "Number size", 0, -220, 12, 96, 1, function()
+		return ns.db.cpFontSize
+	end, function(v)
+		ns.db.cpFontSize = v
+	end)
+
+	widgets.cpGlowAt = Slider(c, "Glow at (combo points)", 0, -270, 1, 7, 1, function()
+		return ns.db.cpGlowAt
+	end, function(v)
+		ns.db.cpGlowAt = v
+	end)
+
+	Label(c, "Color", 0, -322)
+	widgets.cpColor = ColorSwatch(c, 0, -342, function()
+		return ns.db.cpColor
+	end)
+
+	Label(c, "Color at the maximum", COL2, -322)
+	widgets.cpFullColor = ColorSwatch(c, COL2, -342, function()
 		return ns.db.cpFullColor
 	end)
 end
