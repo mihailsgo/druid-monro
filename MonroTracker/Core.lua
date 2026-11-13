@@ -31,8 +31,20 @@ ns.defaults = {
 	rageShowText = true,
 	rageGlow = false, -- pulsing border while rage is full
 	rageCombatOnly = false, -- otherwise shown whenever in Bear Form
+	rageInCat = false, -- also show the rage bar in Cat Form
 	rageX = 0,
 	rageY = -100,
+
+	cpEnabled = true, -- Feral druid only: combo point bar, one segment per point, shown in Cat Form
+	cpWidth = 200,
+	cpHeight = 16,
+	cpGap = 3, -- pixels between segments
+	cpColor = { r = 1, g = 0.75, b = 0.1 },
+	cpFullHighlight = true, -- recolor every segment while at the maximum number of points
+	cpFullColor = { r = 1, g = 0.25, b = 0.1 },
+	cpCombatOnly = false,
+	cpX = 0,
+	cpY = -130,
 
 	rpEnabled = true, -- Death Knight only: runic power bar with a split line at rpPercent
 	rpWidth = 200,
@@ -172,6 +184,7 @@ function ns.PrintHelp()
 	print("  /mtr bonedebug - show what the Bone Shield tracker reads and whether the engine display is built")
 	print("  /mtr extdefdebug - show whether the external defensives display is built and what is switched on")
 	print("  /mtr rpdebug - show what the client reports for the runic power bar and its glow")
+	print("  /mtr cpdebug - show what the client reports for the combo point bar")
 	print("  /mtr enragelog [clear|on|off] - the enrage panel notes what the client returns in combat; saved on /reload")
 end
 
@@ -221,6 +234,8 @@ SlashCmdList["MONROTRACKER"] = function(msg)
 		ns.ExtDefDebug()
 	elseif cmd == "rpdebug" then
 		ns.RunicPowerDebug()
+	elseif cmd == "cpdebug" then
+		ns.ComboPointsDebug()
 	elseif cmd == "enragelog" or cmd:sub(1, 10) == "enragelog " then
 		ns.EnrageLogCommand(strtrim(cmd:sub(11)))
 	elseif cmd == "reset" then

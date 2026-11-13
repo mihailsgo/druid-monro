@@ -378,7 +378,7 @@ local function BuildGeneralPage()
 end
 
 local function BuildBearPage()
-	local page = Page("bear", "Bear Form text", "Warns you while you are not in Bear Form.")
+	local page = Page("bear", "Bear Form text", "Warns you while you are not in Bear Form. Feral druids are also fine in Cat Form.")
 	local p = Panel(page, "Show the text", function()
 		return ns.db.textEnabled
 	end, function(v)
@@ -837,7 +837,7 @@ end
 -- Rage panel page ------------------------------------------------------------
 
 local function BuildRagePage()
-	local page = Page("rage", "Rage panel", "A bar showing your current rage while you are in Bear Form.")
+	local page = Page("rage", "Rage panel", "A bar showing your current rage while you are in Bear Form (optionally in Cat Form too).")
 	local p = Panel(page, "Show the rage panel", function()
 		return ns.db.rageEnabled
 	end, function(v)
@@ -882,6 +882,72 @@ local function BuildRagePage()
 		return ns.db.rageGlow
 	end, function(v)
 		ns.db.rageGlow = v
+	end)
+
+	widgets.rageInCat = Checkbox(c, "Show rage bar also in Cat Form", 0, -260, function()
+		return ns.db.rageInCat
+	end, function(v)
+		ns.db.rageInCat = v
+	end)
+end
+
+-- Combo points page (Feral druid) ----------------------------------------------
+
+local function BuildComboPointsPage()
+	local page = Page(
+		"combo",
+		"Combo point bar",
+		"A bar with one segment per combo point, shown while a Feral druid is in Cat Form."
+	)
+	local p = Panel(page, "Show the combo point bar", function()
+		return ns.db.cpEnabled
+	end, function(v)
+		ns.db.cpEnabled = v
+	end)
+	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
+	p:SetHeight(390)
+	widgets.cpEnabled = p.toggle
+	local c = p.content
+
+	widgets.cpWidth = Slider(c, "Width", 0, 0, 50, 600, 1, function()
+		return ns.db.cpWidth
+	end, function(v)
+		ns.db.cpWidth = v
+	end)
+
+	widgets.cpHeight = Slider(c, "Height", 0, -56, 6, 100, 1, function()
+		return ns.db.cpHeight
+	end, function(v)
+		ns.db.cpHeight = v
+	end)
+
+	widgets.cpGap = Slider(c, "Space between points", 0, -112, 0, 20, 1, function()
+		return ns.db.cpGap
+	end, function(v)
+		ns.db.cpGap = v
+	end)
+
+	Label(c, "Color", 0, -168)
+	widgets.cpColor = ColorSwatch(c, 0, -188, function()
+		return ns.db.cpColor
+	end)
+
+	widgets.cpCombatOnly = Checkbox(c, "Only show in combat", 0, -226, function()
+		return ns.db.cpCombatOnly
+	end, function(v)
+		ns.db.cpCombatOnly = v
+	end)
+
+	widgets.cpFullHighlight = Checkbox(c, "Recolor all points at the maximum", 0, -256, function()
+		return ns.db.cpFullHighlight
+	end, function(v)
+		ns.db.cpFullHighlight = v
+	end)
+
+	Label(c, "Color at the maximum", 0, -296)
+	widgets.cpFullColor = ColorSwatch(c, 0, -316, function()
+		return ns.db.cpFullColor
 	end)
 end
 
@@ -1565,6 +1631,9 @@ local function BuildMainPanel()
 		Nav("rage", "Rage panel", function()
 			return ns.db.rageEnabled
 		end)
+		Nav("combo", "Combo point bar", function()
+			return ns.db.cpEnabled
+		end)
 		Nav("enrage", "Enrage panel", function()
 			return ns.db.enrageEnabled
 		end)
@@ -1623,6 +1692,7 @@ local function BuildMainPanel()
 	BuildGlowPage()
 	if druid then
 		BuildRagePage()
+		BuildComboPointsPage()
 	end
 	if ns.IsDeathKnight() then
 		BuildRunicPowerPage()

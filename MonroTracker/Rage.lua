@@ -10,6 +10,10 @@ local function InBearForm()
 	return GetShapeshiftFormID() == 5
 end
 
+local function InCatForm()
+	return GetShapeshiftFormID() == 1
+end
+
 local function SetGlow(on)
 	if on == glowActive then
 		return
@@ -61,7 +65,10 @@ local function ShouldShow()
 	if ns.IsPreview() then
 		return true
 	end
-	if not ns.IsDruid() or not InBearForm() then
+	if not ns.IsDruid() then
+		return false
+	end
+	if not InBearForm() and not (db.rageInCat and InCatForm()) then
 		return false
 	end
 	return not db.rageCombatOnly or UnitAffectingCombat("player")

@@ -3,8 +3,9 @@ local ADDON_NAME, ns = ...
 -- Dispel callouts: says "Dispel poison" (or "Dispel curse") when someone in your group carries one and your dispel is
 -- ready. Guardian's Remove Corruption (Restoration's Nature's Cure) removes poison and curse.
 --
--- How a poisoned member is recognised. The engine's "RAID_PLAYER_DISPELLABLE" debuff filter keeps only the debuffs you
--- can remove, and each debuff reports its dispel type. Two situations follow:
+-- How a poisoned member is recognised. Each debuff reports its dispel type, and the engine's "RAID" debuff filter keeps
+-- only the debuffs you can remove (DandersFrames uses exactly this for its "dispellable by you" borders; the
+-- "RAID_PLAYER_DISPELLABLE" token is not relied on). Two situations follow:
 --   * Readable (out of combat, open world, any time the client does not restrict auras): the debuff's dispel type is read
 --     straight from its aura data (or through a colour curve) and the addon knows exactly what is on whom.
 --   * Hidden (combat inside a dungeon or Mythic+, where the type is a secret value): Lua cannot look at the debuff, but the
@@ -13,7 +14,8 @@ local ADDON_NAME, ns = ...
 --     This is the same width witness the enrage marker uses; whether the width stays readable in combat is what
 --     /mtr dispeldebug shows.
 
-local FILTER = "HARMFUL|RAID_PLAYER_DISPELLABLE"
+local LIST_FILTER = "HARMFUL" -- every debuff; the type is checked on each, so a filter that matches nothing cannot silence the callout
+local WITNESS_FILTER = "HARMFUL|RAID" -- the debuffs you can dispel, as DandersFrames asks for them
 local DISPEL_SPELLS = { 88423, 2782 } -- Nature's Cure (Restoration), Remove Corruption
 local DEFAULT_SPELL = 2782
 local DEFAULT_COOLDOWN = 8
@@ -251,7 +253,7 @@ local function GetWitness(unit, t)
 		f:SetSize(1, 1)
 		f:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
 		f:SetUnit(unit)
-		f:AddAuraGroup(WITNESS_GROUP, FILTER, {
+		f:AddAuraGroup(WITNESS_GROUP, WITNESS_FILTER, {
 			maxFrameCount = 1,
 			candidateFilters = { includeDispelTypes = { [t.key] = true } },
 			sortMethod = AuraContainerSortMethod and AuraContainerSortMethod.AuraInstanceIDOnly,
@@ -304,7 +306,7 @@ end
 local function ScanUnit(unit, wanted)
 	local found, report = {}, { witness = {} }
 	scanReport[unit] = report
-	local ok, ids = pcall(C_UnitAuras.GetUnitAuraInstanceIDs, unit, FILTER)
+	local ok, ids = pcall(C_UnitAuras.GetUnitAuraInstanceIDs, unit, LIST_FILTER)
 	local n
 	if ok and type(ids) == "table" then
 		local okN, count = pcall(function()
@@ -413,6 +415,7 @@ function ns.DispelDebug()
 	print(("  spell %s, ready=%s (own timer %.1fs left), enabled=%s, poison=%s, curse=%s, self=%s, combat only=%s"):format(
 		tostring(spellID), tostring(DispelReady()), math.max(0, cooldownUntil - GetTime()), tostring(db.dispelEnabled),
 		tostring(db.dispelPoison), tostring(db.dispelCurse), tostring(db.dispelSelf), tostring(db.dispelCombatOnly)))
+	print("  list filter " .. LIST_FILTER .. ", container filter " .. WITNESS_FILTER)
 	print(("  auras restricted: %s; container error: %s"):format(
 		tostring(C_Secrets and C_Secrets.ShouldAurasBeSecret and C_Secrets.ShouldAurasBeSecret() or false),
 		tostring(witnessError)))
@@ -424,7 +427,7 @@ function ns.DispelDebug()
 			for key, width in pairs(r.witness) do
 				parts[#parts + 1] = ("%s container width %s"):format(key, tostring(width))
 			end
-			print(("  %s: dispellable debuffs %s, type %s%s"):format(unit, tostring(r.count),
+			print(("  %s: debuffs %s, type %s%s"):format(unit, tostring(r.count),
 				r.hidden and "hidden" or "readable", #parts > 0 and (", " .. table.concat(parts, ", ")) or ""))
 		else
 			print(("  %s: skipped (missing, dead, out of range or yourself)"):format(unit))

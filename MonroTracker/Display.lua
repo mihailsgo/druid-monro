@@ -1,6 +1,7 @@
 local ADDON_NAME, ns = ...
 
 local BEAR_FORM_ID = 5
+local CAT_FORM_ID = 1
 
 ns.unlocked = false -- session only: frames are draggable and always shown
 ns.configOpen = false -- set by the config panel while it is visible
@@ -57,8 +58,18 @@ function ns.PlaceFrame(f, xKey, yKey, t)
 	f:SetPoint("CENTER", UIParent, "CENTER", t[xKey], t[yKey])
 end
 
-local function InBearForm()
-	return GetShapeshiftFormID() == BEAR_FORM_ID
+function ns.IsFeral()
+	local getSpec = C_SpecializationInfo and C_SpecializationInfo.GetSpecialization or GetSpecialization
+	return getSpec ~= nil and getSpec() == 2
+end
+
+-- Bear Form is always fine (Guardian's form); Cat Form is fine for a Feral druid.
+local function InExpectedForm()
+	local form = GetShapeshiftFormID()
+	if form == BEAR_FORM_ID then
+		return true
+	end
+	return form == CAT_FORM_ID and ns.IsFeral()
 end
 
 local function ApplyText()
@@ -86,7 +97,7 @@ local function ApplyText()
 	else
 		show = (not db.textCombatOnly or UnitAffectingCombat("player"))
 				and (not db.textDungeonOnly or select(2, IsInInstance()) == "party")
-				and not InBearForm()
+				and not InExpectedForm()
 				and strtrim(db.text) ~= ""
 	end
 	frame:SetShown(show)
@@ -102,6 +113,9 @@ function ns.Apply()
 	end
 	if ns.ApplyRage then
 		ns.ApplyRage()
+	end
+	if ns.ApplyComboPoints then
+		ns.ApplyComboPoints()
 	end
 	if ns.ApplyRunicPower then
 		ns.ApplyRunicPower()
@@ -163,7 +177,7 @@ function ns.InitDisplay()
 	events:RegisterEvent("PLAYER_REGEN_ENABLED")
 	events:SetScript("OnEvent", ns.Apply)
 
-	-- Bear text, Moonfire indicator, rage panel and enrage panel are Druid-only; on other classes their frames are never created
+	-- Bear text, Moonfire indicator, rage panel, combo point bar and enrage panel are Druid-only; on other classes their frames are never created
 	-- (their Apply functions do nothing without a frame). Trackers, absorb, voice reminders and trinket glow work for any class.
 	if ns.IsDruid() and ns.InitIndicator then
 		ns.InitIndicator()
@@ -173,6 +187,9 @@ function ns.InitDisplay()
 	end
 	if ns.IsDruid() and ns.InitRage then
 		ns.InitRage()
+	end
+	if ns.IsDruid() and ns.InitComboPoints then
+		ns.InitComboPoints()
 	end
 	if ns.IsDruid() and ns.InitEnrage then
 		ns.InitEnrage()
