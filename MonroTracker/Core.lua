@@ -42,6 +42,8 @@ ns.defaults = {
 	cpColor = { r = 1, g = 0.75, b = 0.1 },
 	cpFullHighlight = true, -- recolor every segment while at the maximum number of points
 	cpFullColor = { r = 1, g = 0.25, b = 0.1 },
+	cpAsNumber = false, -- show the count as a number instead of segments
+	cpFontSize = 36, -- size of that number
 	cpCombatOnly = false,
 	cpX = 0,
 	cpY = -130,

@@ -897,56 +897,68 @@ local function BuildComboPointsPage()
 	local page = Page(
 		"combo",
 		"Combo point bar",
-		"A bar with one segment per combo point, shown while a Feral druid is in Cat Form."
+		"Your combo points as a bar with one segment per point, or as a number, shown while a Feral druid is in Cat Form."
 	)
-	local p = Panel(page, "Show the combo point bar", function()
+	local p = Panel(page, "Show the combo points", function()
 		return ns.db.cpEnabled
 	end, function(v)
 		ns.db.cpEnabled = v
 	end)
 	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
 	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
-	p:SetHeight(390)
+	p:SetHeight(450)
 	widgets.cpEnabled = p.toggle
 	local c = p.content
 
-	widgets.cpWidth = Slider(c, "Width", 0, 0, 50, 600, 1, function()
+	widgets.cpAsNumber = Checkbox(c, "Show as a number instead of a bar", 0, 0, function()
+		return ns.db.cpAsNumber
+	end, function(v)
+		ns.db.cpAsNumber = v
+	end)
+
+	widgets.cpWidth = Slider(c, "Bar width", 0, -34, 50, 600, 1, function()
 		return ns.db.cpWidth
 	end, function(v)
 		ns.db.cpWidth = v
 	end)
 
-	widgets.cpHeight = Slider(c, "Height", 0, -56, 6, 100, 1, function()
+	widgets.cpHeight = Slider(c, "Bar height", 0, -90, 6, 100, 1, function()
 		return ns.db.cpHeight
 	end, function(v)
 		ns.db.cpHeight = v
 	end)
 
-	widgets.cpGap = Slider(c, "Space between points", 0, -112, 0, 20, 1, function()
+	widgets.cpGap = Slider(c, "Space between points", 0, -146, 0, 20, 1, function()
 		return ns.db.cpGap
 	end, function(v)
 		ns.db.cpGap = v
 	end)
 
-	Label(c, "Color", 0, -168)
-	widgets.cpColor = ColorSwatch(c, 0, -188, function()
+	widgets.cpFontSize = Slider(c, "Number size", 0, -202, 12, 96, 1, function()
+		return ns.db.cpFontSize
+	end, function(v)
+		ns.db.cpFontSize = v
+	end)
+
+	Label(c, "Color", 0, -258)
+	widgets.cpColor = ColorSwatch(c, 0, -278, function()
 		return ns.db.cpColor
 	end)
 
-	widgets.cpCombatOnly = Checkbox(c, "Only show in combat", 0, -226, function()
+	widgets.cpCombatOnly = Checkbox(c, "Only show in combat", 0, -316, function()
 		return ns.db.cpCombatOnly
 	end, function(v)
 		ns.db.cpCombatOnly = v
 	end)
 
-	widgets.cpFullHighlight = Checkbox(c, "Recolor all points at the maximum", 0, -256, function()
+	widgets.cpFullHighlight = Checkbox(c, "Recolor at the maximum number of points", 0, -346, function()
 		return ns.db.cpFullHighlight
 	end, function(v)
 		ns.db.cpFullHighlight = v
 	end)
 
-	Label(c, "Color at the maximum", 0, -296)
-	widgets.cpFullColor = ColorSwatch(c, 0, -316, function()
+	Label(c, "Color at the maximum", 0, -386)
+	widgets.cpFullColor = ColorSwatch(c, 0, -406, function()
 		return ns.db.cpFullColor
 	end)
 end

@@ -5,7 +5,7 @@ local MAX_SEGMENTS = 7 -- more than any talent build gives; segments past the re
 local DEFAULT_MAX = 5 -- used when the client hides the maximum
 local PREVIEW_POINTS = 3 -- shown while positioning or styling outside Cat Form
 
-local frame
+local frame, bars, text
 local segments = {}
 local shownCount = 0 -- segments currently laid out
 
@@ -49,7 +49,7 @@ local function Layout(n)
 	for i, seg in ipairs(segments) do
 		if i <= n then
 			seg:ClearAllPoints()
-			seg:SetPoint("TOPLEFT", frame, "TOPLEFT", (i - 1) * (width + gap), 0)
+			seg:SetPoint("TOPLEFT", bars, "TOPLEFT", (i - 1) * (width + gap), 0)
 			seg:SetSize(width, db.cpHeight)
 			seg.fill:SetMinMaxValues(i - 1, i)
 			seg.full:SetMinMaxValues(n - 1, n)
@@ -79,6 +79,27 @@ local function UpdateCombo()
 		segments[i].fill:SetValue(cur)
 		segments[i].full:SetValue(cur)
 	end
+
+	if ns.db.cpAsNumber then
+		-- Formatting fails if the client refuses the hidden value; then the segments are shown instead of a blank panel.
+		local ok = pcall(function()
+			text:SetFormattedText("%d", cur)
+		end)
+		if ok then
+			-- Recolor at the maximum only where the count can be compared (it cannot while the client hides it).
+			local atMax = false
+			if ns.db.cpFullHighlight then
+				local okCmp, full = pcall(function()
+					return cur >= n
+				end)
+				atMax = okCmp and full
+			end
+			local c = atMax and ns.db.cpFullColor or ns.db.cpColor
+			text:SetTextColor(c.r, c.g, c.b, 1)
+		end
+		text:SetShown(ok)
+		bars:SetShown(not ok)
+	end
 end
 
 -- Re-styles the panel (settings changed) and refreshes visibility.
@@ -87,7 +108,17 @@ function ns.ApplyComboPoints()
 		return
 	end
 	local db = ns.db
-	frame:SetSize(db.cpWidth, db.cpHeight)
+	-- As a number the panel is just big enough for the digit; the segments (kept for when the client hides the count) are
+	-- centered on it at their own size.
+	if db.cpAsNumber then
+		frame:SetSize(math.floor(db.cpFontSize * 1.2), math.floor(db.cpFontSize * 1.2))
+	else
+		frame:SetSize(db.cpWidth, db.cpHeight)
+	end
+	bars:SetSize(db.cpWidth, db.cpHeight)
+	bars:SetShown(not db.cpAsNumber)
+	text:SetFont(ns.DEFAULT_FONT, db.cpFontSize, "OUTLINE")
+	text:SetShown(db.cpAsNumber)
 	ns.PlaceFrame(frame, "cpX", "cpY")
 	for _, seg in ipairs(segments) do
 		seg.fill:SetStatusBarColor(db.cpColor.r, db.cpColor.g, db.cpColor.b, 1)
@@ -111,9 +142,9 @@ function ns.ComboPointsDebug()
 	local max = UnitPowerMax("player", COMBO_POINTS)
 	local secretCur = issecretvalue ~= nil and issecretvalue(cur)
 	local secretMax = issecretvalue ~= nil and issecretvalue(max)
-	ns.Print(("combo point bar: shown=%s showsForReal=%s feral=%s cat=%s segments=%s value secret=%s, max secret=%s"):format(
+	ns.Print(("combo point bar: shown=%s showsForReal=%s feral=%s cat=%s segments=%s value secret=%s, max secret=%s, as number=%s (number shown=%s, segments shown=%s)"):format(
 		tostring(frame:IsShown()), tostring(ShowsForReal()), tostring(ns.IsFeral()), tostring(InCatForm()), tostring(shownCount),
-		tostring(secretCur), tostring(secretMax)))
+		tostring(secretCur), tostring(secretMax), tostring(ns.db.cpAsNumber), tostring(text:IsShown()), tostring(bars:IsShown())))
 	for i = 1, shownCount do
 		local lo, hi = segments[i].fill:GetMinMaxValues()
 		print(("  segment %d: range %s-%s, shown=%s"):format(i, tostring(lo), tostring(hi), tostring(segments[i]:IsShown())))
@@ -129,8 +160,18 @@ function ns.InitComboPoints()
 	frame.unlockBg:SetAllPoints()
 	frame.unlockBg:SetColorTexture(0.1, 0.8, 0.3, 0.35)
 
+	-- The segments live in their own container so they can be swapped for the number.
+	bars = CreateFrame("Frame", nil, frame)
+	bars:SetPoint("CENTER")
+	bars:SetSize(ns.db.cpWidth, ns.db.cpHeight)
+
+	text = frame:CreateFontString(nil, "OVERLAY")
+	text:SetPoint("CENTER")
+	text:SetFont(ns.DEFAULT_FONT, 36, "OUTLINE") -- a font must be set before SetText
+	text:Hide()
+
 	for i = 1, MAX_SEGMENTS do
-		local seg = CreateFrame("Frame", nil, frame)
+		local seg = CreateFrame("Frame", nil, bars)
 		seg:Hide()
 		local back = seg:CreateTexture(nil, "BACKGROUND")
 		back:SetAllPoints()
