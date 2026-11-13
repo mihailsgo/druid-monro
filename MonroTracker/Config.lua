@@ -345,7 +345,7 @@ local PAGE_TOP = -72
 local function BuildGeneralPage()
 	local description = "Settings that are not tied to a single feature."
 	if not ns.IsDruid() then
-		description = description .. " Druid-only features (Bear Form text, Moonfire indicator, Rage panel, Enrage panel, Heart of the Wild "
+		description = description .. " Druid-only features (Bear Form text, Moonfire indicator, Rage panel, combo point and energy bars, Enrage panel, Heart of the Wild "
 			.. "and Apex reminders) are hidden on this character."
 	end
 	local page = Page("general", "General", description)
@@ -948,6 +948,72 @@ local function BuildComboPointsPage()
 	Label(c, "Color at the maximum", 0, -296)
 	widgets.cpFullColor = ColorSwatch(c, 0, -316, function()
 		return ns.db.cpFullColor
+	end)
+end
+
+-- Energy page (Feral druid) ----------------------------------------------------
+
+local function BuildEnergyPage()
+	local page = Page(
+		"energy",
+		"Energy bar",
+		"A bar showing your energy while a Feral druid is in Cat Form. Energy past a split line you choose is drawn in its own color."
+	)
+	local p = Panel(page, "Show the energy bar", function()
+		return ns.db.energyEnabled
+	end, function(v)
+		ns.db.energyEnabled = v
+	end)
+	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
+	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
+	p:SetHeight(380)
+	widgets.energyEnabled = p.toggle
+	local c = p.content
+
+	widgets.energyWidth = Slider(c, "Width", 0, 0, 50, 600, 1, function()
+		return ns.db.energyWidth
+	end, function(v)
+		ns.db.energyWidth = v
+	end)
+
+	widgets.energyHeight = Slider(c, "Height", 0, -56, 8, 100, 1, function()
+		return ns.db.energyHeight
+	end, function(v)
+		ns.db.energyHeight = v
+	end)
+
+	widgets.energySplit = Slider(c, "Split line at (energy, 0 = no line)", 0, -112, 0, 150, 1, function()
+		return ns.db.energySplit
+	end, function(v)
+		ns.db.energySplit = v
+	end)
+
+	Label(c, "Color", 0, -168)
+	widgets.energyColor = ColorSwatch(c, 0, -188, function()
+		return ns.db.energyColor
+	end)
+
+	Label(c, "Color past the split line", 150, -168)
+	widgets.energyAboveColor = ColorSwatch(c, 150, -188, function()
+		return ns.db.energyAboveColor
+	end)
+
+	widgets.energyAboveWhole = Checkbox(c, "Recolor the whole bar once energy reaches the line", 0, -226, function()
+		return ns.db.energyAboveWhole
+	end, function(v)
+		ns.db.energyAboveWhole = v
+	end)
+
+	widgets.energyShowText = Checkbox(c, "Show energy number", 0, -256, function()
+		return ns.db.energyShowText
+	end, function(v)
+		ns.db.energyShowText = v
+	end)
+
+	widgets.energyCombatOnly = Checkbox(c, "Only show in combat", 0, -286, function()
+		return ns.db.energyCombatOnly
+	end, function(v)
+		ns.db.energyCombatOnly = v
 	end)
 end
 
@@ -1634,6 +1700,9 @@ local function BuildMainPanel()
 		Nav("combo", "Combo point bar", function()
 			return ns.db.cpEnabled
 		end)
+		Nav("energy", "Energy bar", function()
+			return ns.db.energyEnabled
+		end)
 		Nav("enrage", "Enrage panel", function()
 			return ns.db.enrageEnabled
 		end)
@@ -1693,6 +1762,7 @@ local function BuildMainPanel()
 	if druid then
 		BuildRagePage()
 		BuildComboPointsPage()
+		BuildEnergyPage()
 	end
 	if ns.IsDeathKnight() then
 		BuildRunicPowerPage()

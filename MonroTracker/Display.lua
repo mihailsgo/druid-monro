@@ -117,6 +117,9 @@ function ns.Apply()
 	if ns.ApplyComboPoints then
 		ns.ApplyComboPoints()
 	end
+	if ns.ApplyEnergy then
+		ns.ApplyEnergy()
+	end
 	if ns.ApplyRunicPower then
 		ns.ApplyRunicPower()
 	end
@@ -177,7 +180,7 @@ function ns.InitDisplay()
 	events:RegisterEvent("PLAYER_REGEN_ENABLED")
 	events:SetScript("OnEvent", ns.Apply)
 
-	-- Bear text, Moonfire indicator, rage panel, combo point bar and enrage panel are Druid-only; on other classes their frames are never created
+	-- Bear text, Moonfire indicator, rage panel, combo point and energy bars and enrage panel are Druid-only; on other classes their frames are never created
 	-- (their Apply functions do nothing without a frame). Trackers, absorb, voice reminders and trinket glow work for any class.
 	if ns.IsDruid() and ns.InitIndicator then
 		ns.InitIndicator()
@@ -190,6 +193,9 @@ function ns.InitDisplay()
 	end
 	if ns.IsDruid() and ns.InitComboPoints then
 		ns.InitComboPoints()
+	end
+	if ns.IsDruid() and ns.InitEnergy then
+		ns.InitEnergy()
 	end
 	if ns.IsDruid() and ns.InitEnrage then
 		ns.InitEnrage()

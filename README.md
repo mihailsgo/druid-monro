@@ -87,6 +87,21 @@ A rage bar shown while you are in Bear Form.
 - **Glow when rage is full**: a pulsing golden border around the bar while rage is at maximum (always shown while previewing/unlocked).
 - **Location** - drag it.
 
+#### Energy bar (Feral druid)
+Shown in the sidebar as **Energy bar**, under the combo point bar. An energy bar shown while a Feral druid is in Cat Form,
+with a white **split line** at an energy value you choose (default 50). Energy past the line is drawn in its own color
+(green by default), so you see at a glance when you have, say, enough for a full Ferocious Bite.
+
+- **Split line at** (0 to 150 energy, 0 = no line). The value is energy, not a percentage: 50 puts the line at half of a
+  100-energy bar, and further left if a talent raises your maximum. A value at or past your maximum hides the line.
+- **Color** for the fill up to the line and **Color past the split line** for the fill beyond it.
+- **Recolor the whole bar once energy reaches the line** - off by default; when on, the whole fill turns the past-the-line
+  color from the line on, not only the part to the right of it.
+- **Width**, **height**, **Show energy number** and **Only show in combat** work like the rage panel's.
+- **Location** - drag it. While previewing outside Cat Form the bar shows energy halfway past the line, so both colors are visible.
+- The client hides the energy number from addons in combat; the bar never compares it with the line (each side of the line
+  is its own bar fed the raw value), so the colors stay right in combat. `/mtr energydebug` prints what the bar reads.
+
 #### Runic power bar (Death Knight)
 Death Knight only, shown in the sidebar as **Runic power bar**. The same kind of bar as the rage panel, for runic power, with a
 white **split line** at 75% of the bar and a pulsing icy-blue **glow** while runic power is at or above that line. The glow is
@@ -244,7 +259,7 @@ callouts), so no sound files are needed.
 
 ### Turning features on and off
 Each feature panel has an enable checkbox as its title (Not in Bear Form text, Moonfire proc indicator, Ability
-trackers, Ability glow, Rage panel, Enrage panel, Dispel callouts, External defensives, Absorb shield, Heart of the Wild ready, Apex proc, Dancing Rune Weapon, Runic power bar, Bone Shield tracker), and the minimap button has **Show minimap button** on the General page. A disabled feature is hidden
+trackers, Ability glow, Rage panel, Energy bar, Enrage panel, Dispel callouts, External defensives, Absorb shield, Heart of the Wild ready, Apex proc, Dancing Rune Weapon, Runic power bar, Bone Shield tracker), and the minimap button has **Show minimap button** on the General page. A disabled feature is hidden
 completely, including in the unlock/preview mode. Individual trackers can still be toggled on their own, and the trinket's voice and glow have their own checkboxes.
 
 ### Positioning
@@ -272,4 +287,5 @@ unlock/lock, **drag** moves it around the minimap. It can be hidden from the Gen
 | `/mtr bonedebug` | show whether the Bone Shield display was built and what Lua can read of the buff |
 | `/mtr extdefdebug` | show whether the external defensives display was built and which spells are switched on |
 | `/mtr rpdebug` | show what the client reports for the runic power bar and its glow |
+| `/mtr energydebug` | show what the client reports for the energy bar and where its split line is |
 | `/mtr enragelog [clear\|on\|off]` | the enrage panel's combat diagnostics, saved on `/reload` |

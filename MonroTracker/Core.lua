@@ -46,6 +46,18 @@ ns.defaults = {
 	cpX = 0,
 	cpY = -130,
 
+	energyEnabled = true, -- Feral druid only: energy bar shown in Cat Form, with a split line at energySplit
+	energyWidth = 200,
+	energyHeight = 20,
+	energyColor = { r = 1, g = 0.9, b = 0.2 },
+	energySplit = 50, -- energy value where the split line sits; energy past it is drawn in energyAboveColor. 0 = no line
+	energyAboveColor = { r = 0.15, g = 0.9, b = 0.2 },
+	energyAboveWhole = false, -- once energy reaches the line, draw the whole fill in energyAboveColor, not only the part past it
+	energyShowText = true,
+	energyCombatOnly = false,
+	energyX = 0,
+	energyY = -155,
+
 	rpEnabled = true, -- Death Knight only: runic power bar with a split line at rpPercent
 	rpWidth = 200,
 	rpHeight = 20,
@@ -185,6 +197,7 @@ function ns.PrintHelp()
 	print("  /mtr extdefdebug - show whether the external defensives display is built and what is switched on")
 	print("  /mtr rpdebug - show what the client reports for the runic power bar and its glow")
 	print("  /mtr cpdebug - show what the client reports for the combo point bar")
+	print("  /mtr energydebug - show what the client reports for the energy bar and where its split line is")
 	print("  /mtr enragelog [clear|on|off] - the enrage panel notes what the client returns in combat; saved on /reload")
 end
 
@@ -236,6 +249,8 @@ SlashCmdList["MONROTRACKER"] = function(msg)
 		ns.RunicPowerDebug()
 	elseif cmd == "cpdebug" then
 		ns.ComboPointsDebug()
+	elseif cmd == "energydebug" then
+		ns.EnergyDebug()
 	elseif cmd == "enragelog" or cmd:sub(1, 10) == "enragelog " then
 		ns.EnrageLogCommand(strtrim(cmd:sub(11)))
 	elseif cmd == "reset" then
