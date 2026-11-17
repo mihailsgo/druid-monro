@@ -11,7 +11,13 @@ local ADDON_NAME, ns = ...
 -- The "no Bone Shield" warning needs no reading either: it is our own icon lying under the engine's one. The engine shows its
 -- button only while the buff is up and that button covers the warning completely, so the warning is seen exactly while the
 -- buff is down. Lua only decides the part it can know: whether you are in combat.
+--
+-- The preventive "REFRESH" message (little time left, or few stacks) is a second engine slot on the same buff. Its two texts
+-- go through number formatters whose breakpoints print the message below a limit and nothing from the limit on, so the
+-- comparison with the hidden time and the hidden stack count is made by the engine. There is no voice for it: the engine
+-- only plays a sound when a buff is added, gains stacks or is removed.
 local BONE_SHIELD = 195181
+local LOW_TEXT = "REFRESH"
 local WARNING_MARK = "Interface\\DialogFrame\\UI-Dialog-Icon-AlertNew" -- the yellow "!" triangle of the game's alert popups
 local MARROWREND = 195182 -- Blood-only, so knowing it means Blood spec
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
@@ -19,6 +25,10 @@ local REBUILD_DELAY = 0.5 -- seconds a changed style must stay put before the di
 
 local frame, unlockBg, preview, previewIcon, previewStack, previewTimer
 local warning, warningIcon, warningMark
+local lowHolder, previewLow
+local lowActive -- { container, button, signature, note } of the live "REFRESH" slot
+local lowBuilt = {} -- signature -> entry, as `built`
+local lowPending, lowFailed, lowError
 local active -- { container, button, signature } of the live engine display
 local built = {} -- signature -> { container, button }: displays already made, reused instead of making more
 local pendingSignature
@@ -252,8 +262,180 @@ local function ActivateDisplay(signature)
 	end
 end
 
+-- The "REFRESH" slot ---------------------------------------------------------------------------------------------------
+
+local function LowWanted()
+	local db = ns.db
+	return db.bsLowWarn and (db.bsLowSeconds > 0 or db.bsLowStacks > 0) and true or false
+end
+
+-- The message scales with the icon.
+local function LowFontSize()
+	return math.max(12, math.floor(ns.db.bsSize * 0.34 + 0.5))
+end
+
+local function LowSignature()
+	local db = ns.db
+	return table.concat({ db.bsLowSeconds, db.bsLowStacks, LowFontSize() }, "|")
+end
+
+-- Prints LOW_TEXT while the number is under `limit` and nothing from `limit` on. Nil when there is no limit, or when the
+-- client refuses the rule (then the text is not registered at all: without a formatter it would show the bare number).
+local function LowFormatter(limit)
+	if limit <= 0 or not (C_StringUtil and C_StringUtil.CreateNumericRuleFormatter) then
+		return nil
+	end
+	local f = C_StringUtil.CreateNumericRuleFormatter()
+	local ok = pcall(f.SetBreakpoints, f, { { threshold = 0, format = LOW_TEXT }, { threshold = limit, format = "" } })
+	return ok and f or nil
+end
+
+-- Runs once, in the engine's creation window. Both texts sit on the same spot and say the same, so either limit shows it.
+local function InitLowButton(entry, button, style)
+	entry.button = button
+	button:SetAllPoints(frame)
+	pcall(button.SetMouseClickEnabled, button, false)
+	pcall(button.SetMouseMotionEnabled, button, false)
+
+	local carrier = CreateFrame("Frame", nil, button)
+	carrier:SetAllPoints(button)
+	carrier:EnableMouse(false)
+	local function Text()
+		local fs = carrier:CreateFontString(nil, "OVERLAY")
+		fs:SetFont(ns.DEFAULT_FONT, style.fontSize, "THICKOUTLINE") -- before the engine writes into it
+		fs:SetTextColor(1, 0.15, 0.15)
+		fs:SetPoint("BOTTOM", button, "TOP", 0, 4)
+		return fs
+	end
+
+	if style.stacksFormatter then
+		local ok, err = pcall(button.SetApplicationCount, button, Text(), { formatter = style.stacksFormatter })
+		if not ok then
+			entry.note = "stack text refused: " .. tostring(err)
+		end
+	end
+	if style.timeFormatter then
+		-- The button takes its duration from a registered cooldown, as on the tracker itself; this one draws nothing.
+		local cooldown = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
+		cooldown:SetAllPoints(button)
+		cooldown:SetDrawEdge(false)
+		cooldown:SetHideCountdownNumbers(true)
+		if cooldown.SetDrawSwipe then
+			cooldown:SetDrawSwipe(false)
+		end
+		if cooldown.SetDrawBling then
+			cooldown:SetDrawBling(false)
+		end
+		cooldown:SetAlpha(0)
+		button:SetDurationCooldown(cooldown)
+		local ok, err = pcall(function()
+			local opts
+			if C_DurationUtil and C_DurationUtil.CreateDurationTextBinding then
+				local binding = C_DurationUtil.CreateDurationTextBinding()
+				binding:SetFormatter(style.timeFormatter)
+				binding:SetUpdateInterval(0.1)
+				opts = { binding = binding }
+			else
+				opts = { textFormatter = style.timeFormatter }
+			end
+			button:SetDurationText(Text(), opts)
+		end)
+		if not ok then
+			entry.note = "time text refused: " .. tostring(err)
+		end
+	end
+end
+
+local function BuildLow(signature)
+	if not C_AddOns.IsAddOnLoaded("Blizzard_AuraContainer") then
+		C_AddOns.LoadAddOn("Blizzard_AuraContainer")
+	end
+	local db = ns.db
+	local style = {
+		fontSize = LowFontSize(),
+		stacksFormatter = LowFormatter(db.bsLowStacks),
+		timeFormatter = LowFormatter(db.bsLowSeconds),
+	}
+	if not (style.stacksFormatter or style.timeFormatter) then
+		lowError = "the client has no number rule formatter, or refused the message rule"
+		return nil
+	end
+	local entry = { signature = signature }
+	local ok, err = pcall(function()
+		local container = CreateFrame("AuraContainer", nil, lowHolder, "CustomAuraContainerTemplate")
+		container:SetPoint("CENTER", frame, "CENTER", 0, 0)
+		container:SetSize(1, 1)
+		container:AddAuraSlot("boneshieldlow", "HELPFUL", {
+			candidateFilters = { includeSpellIDs = { [BONE_SHIELD] = true } },
+			initializeFrame = function(button)
+				local okInit, errInit = pcall(InitLowButton, entry, button, style)
+				if not okInit then
+					entry.note = tostring(errInit)
+				end
+			end,
+		})
+		container:SetUnit("player")
+		container:UpdateAllAuras()
+		entry.container = container
+	end)
+	if not ok then
+		lowError = tostring(err)
+		return nil
+	end
+	lowError = nil
+	return entry
+end
+
+-- Switches to the slot for the current limits, making it when there is none yet. A failed build is not retried until
+-- the limits change.
+local function ActivateLow(signature)
+	local entry = lowBuilt[signature]
+	if not entry then
+		if lowFailed == signature then
+			return
+		end
+		entry = BuildLow(signature)
+		if not entry then
+			lowFailed = signature
+			return
+		end
+		lowBuilt[signature] = entry
+	end
+	if lowActive and lowActive ~= entry then
+		lowActive.container:Hide()
+	end
+	lowActive = entry
+	lowError = nil -- a problem with other limits is not this slot's
+	entry.container:Show()
+end
+
+-- Shown in combat only: the visibility is ours (the holder's alpha), what the text says is the engine's.
+local function ApplyLow(inCombat, previewing)
+	local wanted = LowWanted()
+	lowHolder:SetAlpha((wanted and inCombat and not previewing) and 1 or 0)
+	if not wanted then
+		return
+	end
+	local signature = LowSignature()
+	if not lowActive then
+		ActivateLow(signature)
+	elseif lowActive.signature == signature then
+		lowError = nil -- the live slot is the wanted one; an earlier problem was with other limits
+	elseif lowPending ~= signature then
+		lowPending = signature
+		C_Timer.After(REBUILD_DELAY, function()
+			lowPending = nil
+			if frame and frame:IsShown() and LowWanted() and LowSignature() == signature then
+				ActivateLow(signature)
+			end
+		end)
+	end
+end
+
 local function StylePreview()
 	local db = ns.db
+	previewLow:SetFont(ns.DEFAULT_FONT, LowFontSize(), "THICKOUTLINE")
+	previewLow:SetShown(LowWanted())
 	previewIcon:SetTexture(IconTexture())
 	previewStack:SetFont(ns.DEFAULT_FONT, db.bsStackFontSize, "OUTLINE")
 	previewStack:SetShown(db.bsShowStacks)
@@ -297,6 +479,8 @@ function ns.ApplyBoneShield()
 	warningMark:SetSize(db.bsSize * 0.6, db.bsSize * 0.6)
 	warning:SetShown(warn and true or false)
 
+	ApplyLow(inCombat, previewing)
+
 	-- A style that differs from the live display's is applied a moment later, once the sliders have stopped moving.
 	if active and active.signature ~= signature and pendingSignature ~= signature then
 		pendingSignature = signature
@@ -319,6 +503,10 @@ function ns.BoneShieldDebug()
 		tostring(UnitAffectingCombat("player") and true or false)))
 	print(("  missing-in-combat warning: %s; drawn under the engine icon now: %s"):format(db.bsWarnMissing and "on" or "off",
 		tostring(warning and warning:IsShown() or false)))
+	print(("  \"%s\" message: %s; under %d s or under %d stacks; engine slot: %s (%s); button: %s; visible now (in combat): %s; problem: %s"):format(
+		LOW_TEXT, db.bsLowWarn and "on" or "off", db.bsLowSeconds, db.bsLowStacks, lowActive and "live" or "NOT built",
+		lowActive and lowActive.signature or "-", tostring(lowActive and lowActive.button ~= nil or false),
+		tostring(lowHolder and lowHolder:GetAlpha() == 1 or false), tostring((lowActive and lowActive.note) or lowError)))
 	if ns.BoneVoiceStatus then
 		print("  " .. ns.BoneVoiceStatus())
 	end
@@ -397,11 +585,22 @@ function ns.InitBoneShield()
 		pulse:Stop()
 	end)
 
+	-- Parent of the "REFRESH" slots, above the tracker's own display; faded out while out of combat.
+	lowHolder = CreateFrame("Frame", nil, frame)
+	lowHolder:SetAllPoints()
+	lowHolder:SetFrameLevel(frame:GetFrameLevel() + 8)
+	lowHolder:SetAlpha(0)
+
 	-- Sample shown while positioning or styling; the engine only draws while the buff is on you.
 	preview = CreateFrame("Frame", nil, frame)
 	preview:SetAllPoints()
 	preview:SetFrameLevel(frame:GetFrameLevel() + 6)
 	preview:Hide()
+	previewLow = preview:CreateFontString(nil, "OVERLAY")
+	previewLow:SetFont(ns.DEFAULT_FONT, 22, "THICKOUTLINE")
+	previewLow:SetTextColor(1, 0.15, 0.15)
+	previewLow:SetPoint("BOTTOM", preview, "TOP", 0, 4)
+	previewLow:SetText(LOW_TEXT)
 	previewIcon = preview:CreateTexture(nil, "ARTWORK")
 	previewIcon:SetAllPoints()
 	previewIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)

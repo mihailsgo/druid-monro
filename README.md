@@ -122,9 +122,17 @@ the count and the countdown from the real buff, in and out of combat. Our code o
 is being built; the button is closed to addon code afterwards.
 
 - **Icon size**, **Stack font size** and **Time font size**.
-- **Tenths of a second below** (default 5; 0 = whole seconds only) and **Time turns red at or below** (default 5; 0 = never).
-  The colour is a curve the engine evaluates against the hidden remaining time.
-  Whole seconds are rounded down, so "5" means five full seconds are left.
+- **Tenths of a second below** (default 5; 0 = whole seconds only). Whole seconds are rounded down, so "5" means five full
+  seconds are left.
+- **Low time below, seconds** (default 5; 0 = never) and **Low stacks below** (default 5; 0 = never) are the two "refresh it
+  now" limits. Under the time limit the timer turns red (a colour curve the engine evaluates against the hidden remaining
+  time).
+- **"REFRESH" if low in combat** (on by default) - the preventive warning: while you are in combat and Bone Shield has less
+  time left than the time limit **or** fewer stacks than the stack limit, a red **REFRESH** shows above the icon. Lua cannot
+  see either number in combat, so this is a second engine slot on the same buff with two texts, one bound to the remaining
+  time and one to the stack count. Each goes through a number formatter whose breakpoints print "REFRESH" below the limit and
+  nothing from the limit on, so the engine makes the comparison. Our code only fades the slot out while you are out of
+  combat. The message scales with the icon size.
 - **Show stack count**, **Show time left**, **Cooldown swipe on the icon** and **Only show in combat**. Out of combat nothing
   is shown while Bone Shield is down (no faded icon).
 - **Warn if missing in combat** (on by default) - while you are in combat without Bone Shield, the icon's place shows a red,
@@ -136,14 +144,18 @@ is being built; the button is closed to addon code afterwards.
   buff in combat. Registered like the Apex clip (not allowed in combat inside instanced PvE, retried when combat ends).
   Out of combat the clip is muted (`MuteSoundFile`), so the buff running out after a fight stays silent. **Test voice**
   plays it. It does not speak at the start of a pull where you simply have no bones yet - the warning icon covers that.
-  The earlier "Refresh bones" reminder (low stacks or little time left) is gone for good: stacks and time are hidden in
-  combat, and guessing them from casts was unreliable.
-- Fonts and the checkboxes (and the swipe) are baked into the display, so a change builds a fresh display half a second after
-  you stop moving the slider; already-built displays are reused. Size and position apply at once.
-- **Location** - drag it. Unlocking, or having the settings window open, shows a sample (8 stacks, 12.3s) instead.
-- Stacks under the red limit are not coloured: the stack count is hidden in combat, so there is nothing to compare it with.
+  There is no voice for "low": the engine only plays a sound when a buff is added, gains stacks or is removed, and Lua
+  cannot see the stacks or the time in combat (guessing them from casts was unreliable). The preventive warning is the
+  REFRESH message above.
+- Fonts, the two limits and the first three checkboxes (stacks, time, swipe) are baked into the displays, so a change builds
+  a fresh display half a second after you stop moving the slider; already-built displays are reused. Size and position
+  apply at once.
+- **Location** - drag it. Unlocking, or having the settings window open, shows a sample (8 stacks, 12.3s, and REFRESH when
+  that is on) instead.
+- The stack number itself is not coloured when low; the REFRESH message is the low-stacks signal.
 - `/mtr bonedebug` shows whether the engine display was built, its last error, what Lua itself can read of the buff, whether
-  the warning is on, and whether the voice clip is registered with the engine and currently muted.
+  the warning is on, the REFRESH slot (limits, built or not, any problem the client reported), and whether the voice clip is
+  registered with the engine and currently muted.
 
 ### 6. Enrage panel
 Druid only. A small panel that appears while an enemy carries an enrage you can Soothe and lists those mobs, the one

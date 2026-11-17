@@ -1120,7 +1120,7 @@ local function BuildBoneShieldPage()
 	end)
 	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
 	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
-	p:SetHeight(400)
+	p:SetHeight(444)
 	widgets.bsEnabled = p.toggle
 	local c = p.content
 
@@ -1148,10 +1148,16 @@ local function BuildBoneShieldPage()
 		ns.db.bsTimerDecimals = v
 	end)
 
-	widgets.bsLowSeconds = Slider(c, "Time turns red at or below (0 = never)", 0, -224, 0, 30, 1, function()
+	widgets.bsLowSeconds = Slider(c, "Low time below, seconds (0 = never)", 0, -224, 0, 30, 1, function()
 		return ns.db.bsLowSeconds
 	end, function(v)
 		ns.db.bsLowSeconds = v
+	end)
+
+	widgets.bsLowStacks = Slider(c, "Low stacks below (0 = never)", 0, -280, 0, 12, 1, function()
+		return ns.db.bsLowStacks
+	end, function(v)
+		ns.db.bsLowStacks = v
 	end)
 
 	widgets.bsShowStacks = Checkbox(c, "Show stack count", 300, 0, function()
@@ -1184,7 +1190,13 @@ local function BuildBoneShieldPage()
 		ns.db.bsWarnMissing = v
 	end)
 
-	widgets.bsVoice = Checkbox(c, "Say \"Bone Shield\" if lost", 300, -150, function()
+	widgets.bsLowWarn = Checkbox(c, "\"REFRESH\" if low in combat", 300, -150, function()
+		return ns.db.bsLowWarn
+	end, function(v)
+		ns.db.bsLowWarn = v
+	end)
+
+	widgets.bsVoice = Checkbox(c, "Say \"Bone Shield\" if lost", 300, -180, function()
 		return ns.db.bsVoice
 	end, function(v)
 		ns.db.bsVoice = v
@@ -1192,11 +1204,11 @@ local function BuildBoneShieldPage()
 	local voiceTest = ActionButton(c, "Test voice", 100, function()
 		ns.TestBoneSound()
 	end)
-	voiceTest:SetPoint("TOPLEFT", 304, -184)
+	voiceTest:SetPoint("TOPLEFT", 304, -214)
 
-	local hint = Label(c, "In combat without Bone Shield the icon becomes a red pulsing warning; the voice speaks when the buff drops mid-fight. Fonts and the first three checkboxes are built into the display, so a change shows a moment after you stop. Use Unlock to move it.",
-		0, -290, "GameFontHighlightSmall")
-	hint:SetPoint("TOPRIGHT", 0, -290)
+	local hint = Label(c, "Low = under either limit: the timer turns red and, in combat, REFRESH shows above the icon. With no Bone Shield in combat the icon becomes a red warning. Fonts, limits and the first three checkboxes are built into the display: a change shows a moment after you stop.",
+		0, -338, "GameFontHighlightSmall")
+	hint:SetPoint("TOPRIGHT", 0, -338)
 	hint:SetJustifyH("LEFT")
 end
 

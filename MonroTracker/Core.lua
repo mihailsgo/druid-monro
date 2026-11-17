@@ -81,7 +81,9 @@ ns.defaults = {
 	bsShowTimer = true,
 	bsTimerFontSize = 18,
 	bsTimerDecimals = 5, -- show tenths of a second below this many seconds; 0 = whole seconds only
-	bsLowSeconds = 5, -- timer turns red at or below this many seconds left; 0 = never
+	bsLowSeconds = 5, -- low time: the timer turns red and "REFRESH" shows below this many seconds left; 0 = never
+	bsLowStacks = 5, -- low stacks: "REFRESH" shows below this many stacks; 0 = never
+	bsLowWarn = true, -- in combat, "REFRESH" above the icon while the time or the stacks are low (compared by the engine)
 	bsCombatOnly = false,
 	bsWarnMissing = true, -- in combat with no Bone Shield: a red pulsing warning icon in the tracker's place
 	bsVoice = true, -- says "Bone Shield" when the buff drops in combat (an engine aura sound; Lua cannot see the buff there)
