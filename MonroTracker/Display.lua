@@ -21,6 +21,28 @@ function ns.IsPreview()
 	return ns.unlocked or ns.configOpen
 end
 
+-- Combat as the REGEN events report it, so nothing depends on UnitAffectingCombat having caught up inside the event
+-- itself. Before the first such event (login, /reload, a loading screen) the unit is asked directly.
+local combatFlag
+
+function ns.InCombat()
+	if combatFlag == nil then
+		return UnitAffectingCombat("player") and true or false
+	end
+	return combatFlag
+end
+
+local function OnEvent(_, event)
+	if event == "PLAYER_REGEN_DISABLED" then
+		combatFlag = true
+	elseif event == "PLAYER_REGEN_ENABLED" then
+		combatFlag = false
+	elseif event == "PLAYER_ENTERING_WORLD" then
+		combatFlag = nil
+	end
+	ns.Apply()
+end
+
 local function DefaultStore()
 	return ns.db
 end
@@ -178,7 +200,7 @@ function ns.InitDisplay()
 	events:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 	events:RegisterEvent("PLAYER_REGEN_DISABLED")
 	events:RegisterEvent("PLAYER_REGEN_ENABLED")
-	events:SetScript("OnEvent", ns.Apply)
+	events:SetScript("OnEvent", OnEvent)
 
 	-- Bear text, Moonfire indicator, rage panel, combo point and energy bars and enrage panel are Druid-only; on other classes their frames are never created
 	-- (their Apply functions do nothing without a frame). Trackers, absorb, voice reminders and trinket glow work for any class.

@@ -1,7 +1,7 @@
 local ADDON_NAME, ns = ...
 
 -- Voice reminders: says "Trinket ready" / "Heart of the Wild ready" when the cooldown comes back, "Apex" when
--- Wild Guardian procs and "Weapon" when Dancing Rune Weapon comes up.
+-- Wild Guardian procs, "Weapon" when Dancing Rune Weapon comes up and "Bone Shield" when Bone Shield drops in combat.
 
 local HEART_OF_THE_WILD_IDS = {
 	1261867, -- Midnight
@@ -206,7 +206,7 @@ function ns.TrinketCooling()
 	end
 end
 
--- Proc callouts: "Apex" (Druid) and "Weapon" (Blood Death Knight) ---------------------------------------------
+-- Aura callouts: "Apex" (Druid), "Weapon" and "Bone Shield" (Blood Death Knight) -------------------------------
 
 -- Since 12.1 addons cannot see auras appear, but the engine can play a sound file when a given aura lands on a unit.
 -- So each callout is a baked clip (Zira voice) the engine plays itself; the text-to-speech path below is only the
@@ -215,6 +215,7 @@ end
 local SOUND_DIR = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Sounds\\"
 ns.APEX_SOUND = SOUND_DIR .. "Apex.ogg"
 ns.WEAPON_SOUND = SOUND_DIR .. "Weapon.ogg"
+ns.BONE_SOUND = SOUND_DIR .. "BoneShield.ogg"
 
 local PROC_DEBOUNCE = 1 -- the summon cast and the buff arrive together; speak once
 
@@ -239,7 +240,23 @@ local procs = {
 			return ns.IsDeathKnight() and ns.db.weaponEnabled
 		end,
 	},
+	{
+		-- Bone Shield falling off. In combat Lua cannot see the buff at all (not its stacks, its time left, or even that it
+		-- is there), so nothing can be estimated or spoken from Lua; the engine's "removed" trigger is the only signal, and
+		-- it is exact. No text-to-speech fallback for the same reason. The clip is muted out of combat, where the buff just
+		-- runs out half a minute after a fight.
+		text = "Bone Shield",
+		file = ns.BONE_SOUND,
+		buff = 195181,
+		casts = {},
+		trigger = "Removed",
+		combatOnly = true,
+		enabled = function()
+			return ns.IsDeathKnight() and ns.db.bsEnabled and ns.db.bsVoice
+		end,
+	},
 }
+local boneProc = procs[#procs]
 
 local function ProcName(p)
 	return C_Spell.GetSpellName(p.buff) or p.text
@@ -288,16 +305,44 @@ local function RemoveProcSound(p)
 	end
 end
 
+-- A `combatOnly` clip is muted while out of combat: the engine sound cannot be registered once a dungeon fight has begun,
+-- so it stays registered and only its file is silenced. Mutes outlive a /reload, so the state is always set, never assumed.
+local function SyncMutes()
+	if not (MuteSoundFile and UnmuteSoundFile) then
+		return
+	end
+	local inCombat = ns.InCombat()
+	for _, p in ipairs(procs) do
+		if p.combatOnly then
+			local mute = (p.enabled() and not inCombat and not p.testing) and true or false
+			if mute ~= p.muted then
+				pcall(mute and MuteSoundFile or UnmuteSoundFile, p.file)
+				p.muted = mute
+			end
+		end
+	end
+end
+
+-- The engine trigger of a callout: "Added" unless it names another one. Nil when this client does not have it.
+local function ProcTrigger(p)
+	return Enum.UnitAuraSoundTrigger[p.trigger or "Added"]
+end
+
 -- Registers or removes each engine sound to match its setting; cheap when nothing changes. Called from ns.Apply, which
--- also runs when combat ends, so a registration refused in combat is retried then.
+-- also runs when combat starts and ends, so a registration refused in combat is retried then.
 function ns.ApplyAuraSounds()
-	if not (ns.db and HasAuraSoundAPI()) or not CanRegisterAuraSound() then
+	if not ns.db then
+		return
+	end
+	SyncMutes()
+	if not HasAuraSoundAPI() or not CanRegisterAuraSound() then
 		return
 	end
 	for _, p in ipairs(procs) do
 		local want = p.enabled() and true or false
-		if want and not p.handle then
-			local ok, handle = pcall(C_UnitAuras.AddAuraSound, Enum.UnitAuraSoundTrigger.Added, {
+		local trigger = ProcTrigger(p)
+		if want and not p.handle and trigger ~= nil then
+			local ok, handle = pcall(C_UnitAuras.AddAuraSound, trigger, {
 				unitToken = "player",
 				spellID = p.buff,
 				soundFileName = p.file,
@@ -305,11 +350,35 @@ function ns.ApplyAuraSounds()
 			})
 			if ok and handle then
 				p.handle = handle
+				p.error = nil
+			else
+				p.error = ok and "the client returned no handle" or tostring(handle)
 			end
 		elseif not want then
 			RemoveProcSound(p)
 		end
 	end
+end
+
+-- The Test button: a muted clip would stay silent, so it is let through for the length of the clip.
+function ns.TestBoneSound()
+	boneProc.testing = true
+	SyncMutes()
+	PlaySoundFile(ns.BONE_SOUND, "Master")
+	C_Timer.After(2, function()
+		boneProc.testing = nil
+		SyncMutes()
+	end)
+end
+
+-- For /mtr bonedebug.
+function ns.BoneVoiceStatus()
+	local p = boneProc
+	local api = HasAuraSoundAPI()
+	return ("voice on drop: %s; aura sound API: %s; \"removed\" trigger: %s; engine sound: %s%s; clip: %s"):format(
+		p.enabled() and "on" or "off", tostring(api), tostring(api and ProcTrigger(p) ~= nil),
+		p.handle and "registered" or "NOT registered", p.error and (" (" .. p.error .. ")") or "",
+		p.muted and "muted (out of combat)" or "audible")
 end
 
 local function AnnounceProc(p)
@@ -323,7 +392,7 @@ end
 -- The buff appearing catches procs even if the cast is not reported. Aura details can be hidden in instances.
 local function CheckProcs()
 	for _, p in ipairs(procs) do
-		if p.enabled() then
+		if p.enabled() and not p.trigger then
 			local active = HasProcBuff(p)
 			if active and not p.active then
 				AnnounceProc(p)
@@ -348,7 +417,7 @@ local function OnCast(spellID)
 	end
 	-- A new spirit while one is already out only refreshes the buff, so the cast is what catches it.
 	for _, p in ipairs(procs) do
-		if p.enabled() and IsProcSpell(p, spellID) then
+		if not p.trigger and p.enabled() and IsProcSpell(p, spellID) then
 			AnnounceProc(p)
 		end
 	end

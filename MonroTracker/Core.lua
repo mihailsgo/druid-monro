@@ -83,6 +83,8 @@ ns.defaults = {
 	bsTimerDecimals = 5, -- show tenths of a second below this many seconds; 0 = whole seconds only
 	bsLowSeconds = 5, -- timer turns red at or below this many seconds left; 0 = never
 	bsCombatOnly = false,
+	bsWarnMissing = true, -- in combat with no Bone Shield: a red pulsing warning icon in the tracker's place
+	bsVoice = true, -- says "Bone Shield" when the buff drops in combat (an engine aura sound; Lua cannot see the buff there)
 	bsX = 0,
 	bsY = -170,
 
@@ -197,7 +199,7 @@ function ns.PrintHelp()
 	print("  /mtr trackerdebug - show what the client reports for each ability tracker and what the addon makes of it")
 	print("  /mtr enragedebug - show what the client lets the enrage panel read on each enemy nameplate")
 	print("  /mtr dispeldebug - show what the client lets the dispel callout read on each group member")
-	print("  /mtr bonedebug - show what the Bone Shield tracker reads and whether the engine display is built")
+	print("  /mtr bonedebug - show what the Bone Shield tracker reads, whether the engine display is built and the state of its warning and voice")
 	print("  /mtr extdefdebug - show whether the external defensives display is built and what is switched on")
 	print("  /mtr rpdebug - show what the client reports for the runic power bar and its glow")
 	print("  /mtr cpdebug - show what the client reports for the combo point bar")

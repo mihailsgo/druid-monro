@@ -1111,7 +1111,7 @@ local function BuildBoneShieldPage()
 	local page = Page(
 		"bone",
 		"Bone Shield",
-		"An icon with your Bone Shield stacks and the time left. The game itself draws it, so it keeps working in combat when addons cannot see the buff."
+		"An icon with your Bone Shield stacks and the time left, and a warning when it is gone in combat. The game itself draws it, so it keeps working in combat when addons cannot see the buff."
 	)
 	local p = Panel(page, "Show the Bone Shield tracker", function()
 		return ns.db.bsEnabled
@@ -1178,7 +1178,23 @@ local function BuildBoneShieldPage()
 		ns.db.bsCombatOnly = v
 	end)
 
-	local hint = Label(c, "Fonts and the checkboxes above are built into the display, so a change shows a moment after you stop. Use Unlock to move it.",
+	widgets.bsWarnMissing = Checkbox(c, "Warn if missing in combat", 300, -120, function()
+		return ns.db.bsWarnMissing
+	end, function(v)
+		ns.db.bsWarnMissing = v
+	end)
+
+	widgets.bsVoice = Checkbox(c, "Say \"Bone Shield\" if lost", 300, -150, function()
+		return ns.db.bsVoice
+	end, function(v)
+		ns.db.bsVoice = v
+	end)
+	local voiceTest = ActionButton(c, "Test voice", 100, function()
+		ns.TestBoneSound()
+	end)
+	voiceTest:SetPoint("TOPLEFT", 304, -184)
+
+	local hint = Label(c, "In combat without Bone Shield the icon becomes a red pulsing warning; the voice speaks when the buff drops mid-fight. Fonts and the first three checkboxes are built into the display, so a change shows a moment after you stop. Use Unlock to move it.",
 		0, -290, "GameFontHighlightSmall")
 	hint:SetPoint("TOPRIGHT", 0, -290)
 	hint:SetJustifyH("LEFT")

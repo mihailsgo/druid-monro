@@ -7,12 +7,18 @@ local ADDON_NAME, ns = ...
 -- for Bone Shield builds the icon, the stack count and the countdown from the real buff, in or out of combat, and only the
 -- Lua styling of those parts is ours. The styling is done once, while the button is being built (the button is closed to
 -- addon code afterwards), so changing a font size or a toggle builds a fresh container a moment later.
+--
+-- The "no Bone Shield" warning needs no reading either: it is our own icon lying under the engine's one. The engine shows its
+-- button only while the buff is up and that button covers the warning completely, so the warning is seen exactly while the
+-- buff is down. Lua only decides the part it can know: whether you are in combat.
 local BONE_SHIELD = 195181
+local WARNING_MARK = "Interface\\DialogFrame\\UI-Dialog-Icon-AlertNew" -- the yellow "!" triangle of the game's alert popups
 local MARROWREND = 195182 -- Blood-only, so knowing it means Blood spec
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local REBUILD_DELAY = 0.5 -- seconds a changed style must stay put before the display is rebuilt (sliders fire on every step)
 
 local frame, unlockBg, preview, previewIcon, previewStack, previewTimer
+local warning, warningIcon, warningMark
 local active -- { container, button, signature } of the live engine display
 local built = {} -- signature -> { container, button }: displays already made, reused instead of making more
 local pendingSignature
@@ -267,7 +273,8 @@ function ns.ApplyBoneShield()
 	unlockBg:SetShown(ns.unlocked)
 
 	local previewing = ns.IsPreview()
-	local show = db.bsEnabled and IsBlood() and (previewing or not db.bsCombatOnly or UnitAffectingCombat("player"))
+	local inCombat = ns.InCombat()
+	local show = db.bsEnabled and IsBlood() and (previewing or not db.bsCombatOnly or inCombat)
 	frame:SetShown(show and true or false)
 	if not show then
 		return
@@ -279,11 +286,19 @@ function ns.ApplyBoneShield()
 		active.container:SetShown(not previewing)
 	end
 
-	-- A style that differs from the live display's is applied a moment later, once the sliders have stopped moving.
 	local signature = StyleSignature()
 	if not active then
 		ActivateDisplay(signature)
-	elseif active.signature ~= signature and pendingSignature ~= signature then
+	end
+
+	-- Only with a live engine display on top of it: without one nothing would ever cover the warning.
+	local warn = db.bsWarnMissing and inCombat and not previewing and active ~= nil and active.container ~= nil
+	warningIcon:SetTexture(IconTexture())
+	warningMark:SetSize(db.bsSize * 0.6, db.bsSize * 0.6)
+	warning:SetShown(warn and true or false)
+
+	-- A style that differs from the live display's is applied a moment later, once the sliders have stopped moving.
+	if active and active.signature ~= signature and pendingSignature ~= signature then
 		pendingSignature = signature
 		C_Timer.After(REBUILD_DELAY, function()
 			pendingSignature = nil
@@ -299,8 +314,14 @@ end
 function ns.BoneShieldDebug()
 	local db = ns.db
 	ns.Print("Bone Shield tracker debug")
-	print(("  Blood spec: %s; tracker %s; shown: %s; in combat: %s"):format(tostring(IsBlood() and true or false),
-		db.bsEnabled and "on" or "off", tostring(frame and frame:IsShown() or false), tostring(UnitAffectingCombat("player") and true or false)))
+	print(("  Blood spec: %s; tracker %s; shown: %s; in combat: %s (the unit says %s)"):format(tostring(IsBlood() and true or false),
+		db.bsEnabled and "on" or "off", tostring(frame and frame:IsShown() or false), tostring(ns.InCombat()),
+		tostring(UnitAffectingCombat("player") and true or false)))
+	print(("  missing-in-combat warning: %s; drawn under the engine icon now: %s"):format(db.bsWarnMissing and "on" or "off",
+		tostring(warning and warning:IsShown() or false)))
+	if ns.BoneVoiceStatus then
+		print("  " .. ns.BoneVoiceStatus())
+	end
 	print(("  engine aura container API: %s; Blizzard_AuraContainer loaded: %s"):format(
 		tostring(C_AddOns.DoesAddOnExist and C_AddOns.DoesAddOnExist("Blizzard_AuraContainer")),
 		tostring(C_AddOns.IsAddOnLoaded("Blizzard_AuraContainer"))))
@@ -347,6 +368,34 @@ function ns.InitBoneShield()
 	unlockBg = frame:CreateTexture(nil, "BACKGROUND")
 	unlockBg:SetAllPoints()
 	unlockBg:SetColorTexture(0.1, 0.8, 0.3, 0.35)
+
+	-- The warning: a red, pulsing Bone Shield icon with the alert mark, kept inside the icon's bounds and below the engine
+	-- display (level +3), whose own icon hides it while the buff is up.
+	warning = CreateFrame("Frame", nil, frame)
+	warning:SetAllPoints()
+	warning:SetFrameLevel(frame:GetFrameLevel() + 1)
+	warning:Hide()
+	warningIcon = warning:CreateTexture(nil, "ARTWORK")
+	warningIcon:SetAllPoints()
+	warningIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	warningIcon:SetDesaturated(true)
+	warningIcon:SetVertexColor(1, 0.25, 0.25)
+	warningMark = warning:CreateTexture(nil, "OVERLAY")
+	warningMark:SetTexture(WARNING_MARK)
+	warningMark:SetPoint("CENTER")
+	local pulse = warning:CreateAnimationGroup()
+	pulse:SetLooping("BOUNCE")
+	local fade = pulse:CreateAnimation("Alpha")
+	fade:SetFromAlpha(1)
+	fade:SetToAlpha(0.4)
+	fade:SetDuration(0.45)
+	fade:SetSmoothing("IN_OUT")
+	warning:SetScript("OnShow", function()
+		pulse:Play()
+	end)
+	warning:SetScript("OnHide", function()
+		pulse:Stop()
+	end)
 
 	-- Sample shown while positioning or styling; the engine only draws while the buff is on you.
 	preview = CreateFrame("Frame", nil, frame)

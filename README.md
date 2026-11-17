@@ -125,13 +125,25 @@ is being built; the button is closed to addon code afterwards.
 - **Tenths of a second below** (default 5; 0 = whole seconds only) and **Time turns red at or below** (default 5; 0 = never).
   The colour is a curve the engine evaluates against the hidden remaining time.
   Whole seconds are rounded down, so "5" means five full seconds are left.
-- **Show stack count**, **Show time left**, **Cooldown swipe on the icon** and **Only show in combat**. Nothing is shown while
-  Bone Shield is down (no faded icon).
+- **Show stack count**, **Show time left**, **Cooldown swipe on the icon** and **Only show in combat**. Out of combat nothing
+  is shown while Bone Shield is down (no faded icon).
+- **Warn if missing in combat** (on by default) - while you are in combat without Bone Shield, the icon's place shows a red,
+  pulsing Bone Shield icon with a yellow "!" on it. Nothing is read for this: the warning is our own icon lying *under* the
+  engine's one, which is only shown while the buff is up and then covers it completely. Lua only supplies "in combat"
+  (from the combat start and end events). It is off while unlocked or while the settings are open (the sample is shown).
+- **Say "Bone Shield" if lost** (on by default) - a recorded clip (`Sounds/BoneShield.ogg`, Zira voice) the game plays when
+  Bone Shield drops off you during a fight: `C_UnitAuras.AddAuraSound` with the **removed** trigger, since Lua cannot see the
+  buff in combat. Registered like the Apex clip (not allowed in combat inside instanced PvE, retried when combat ends).
+  Out of combat the clip is muted (`MuteSoundFile`), so the buff running out after a fight stays silent. **Test voice**
+  plays it. It does not speak at the start of a pull where you simply have no bones yet - the warning icon covers that.
+  The earlier "Refresh bones" reminder (low stacks or little time left) is gone for good: stacks and time are hidden in
+  combat, and guessing them from casts was unreliable.
 - Fonts and the checkboxes (and the swipe) are baked into the display, so a change builds a fresh display half a second after
   you stop moving the slider; already-built displays are reused. Size and position apply at once.
 - **Location** - drag it. Unlocking, or having the settings window open, shows a sample (8 stacks, 12.3s) instead.
 - Stacks under the red limit are not coloured: the stack count is hidden in combat, so there is nothing to compare it with.
-- `/mtr bonedebug` shows whether the engine display was built, its last error, and what Lua itself can read of the buff.
+- `/mtr bonedebug` shows whether the engine display was built, its last error, what Lua itself can read of the buff, whether
+  the warning is on, and whether the voice clip is registered with the engine and currently muted.
 
 ### 6. Enrage panel
 Druid only. A small panel that appears while an enemy carries an enrage you can Soothe and lists those mobs, the one
