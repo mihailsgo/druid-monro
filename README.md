@@ -139,14 +139,26 @@ is being built; the button is closed to addon code afterwards.
   pulsing Bone Shield icon with a yellow "!" on it. Nothing is read for this: the warning is our own icon lying *under* the
   engine's one, which is only shown while the buff is up and then covers it completely. Lua only supplies "in combat"
   (from the combat start and end events). It is off while unlocked or while the settings are open (the sample is shown).
-- **Say "Bone Shield" if lost** (on by default) - a recorded clip (`Sounds/BoneShield.ogg`, Zira voice) the game plays when
-  Bone Shield drops off you during a fight: `C_UnitAuras.AddAuraSound` with the **removed** trigger, since Lua cannot see the
-  buff in combat. Registered like the Apex clip (not allowed in combat inside instanced PvE, retried when combat ends).
-  Out of combat the clip is muted (`MuteSoundFile`), so the buff running out after a fight stays silent. **Test voice**
-  plays it. It does not speak at the start of a pull where you simply have no bones yet - the warning icon covers that.
-  There is no voice for "low": the engine only plays a sound when a buff is added, gains stacks or is removed, and Lua
-  cannot see the stacks or the time in combat (guessing them from casts was unreliable). The preventive warning is the
-  REFRESH message above.
+- **Say "Refresh Bone Shield"** (on by default) - one recorded clip (`Sounds/BoneShield.ogg`, Zira voice) for three moments,
+  all in combat only. **Test voice** plays it.
+  - **Bone Shield drops off you.** Exact: `C_UnitAuras.AddAuraSound` with the **removed** trigger on Bone Shield, since Lua
+    cannot see the buff in combat.
+  - **It falls under 5 stacks.** Exact, but it needs the **Ossuary** talent: Ossuary keeps a buff of its own (219788) on you
+    for as long as you have 5 or more stacks, so the same **removed** trigger on that buff marks the moment. The limit is
+    the talent's 5, not the stack slider's; the slider at 0 switches it off.
+  - **Under the time limit** (the *Low time* slider; 0 = off). Worked out, not observed: the engine plays no sound for
+    "little time left", so the addon keeps a clock of its own. Bone Shield lasts 30 seconds from the last time it gained
+    stacks, and that happens on your own casts, which the client does report: Marrowrend and Death's Caress always, and by
+    default Dancing Rune Weapon, Reaper's Mark, Gorefiend's Grasp and Death Grip. Whenever the buff can be read (out of
+    combat, unrestricted content) the clock is set from the real expiry instead, and each cast is checked against it: a
+    listed spell seen three times not to move the buff is dropped, an unlisted one that does move it is learned. It
+    speaks once per window, and right at the pull if the buff was already that short going in. If it speaks early, a
+    spell that refreshes Bone Shield is missing from its list; `/mtr bonedebug` shows the clock and what it has learned.
+
+  Engine sounds are registered like the Apex clip (not allowed in combat inside instanced PvE, retried when combat ends).
+  Out of combat the clip is muted (`MuteSoundFile`), so the buff running out after a fight stays silent. Nothing is said
+  at the start of a pull where you simply have no bones yet - the warning icon covers that. When Bone Shield runs out
+  with 5 or more stacks, the drop and the Ossuary sound fire together.
 - Fonts, the two limits and the first three checkboxes (stacks, time, swipe) are baked into the displays, so a change builds
   a fresh display half a second after you stop moving the slider; already-built displays are reused. Size and position
   apply at once.
@@ -154,8 +166,8 @@ is being built; the button is closed to addon code afterwards.
   that is on) instead.
 - The stack number itself is not coloured when low; the REFRESH message is the low-stacks signal.
 - `/mtr bonedebug` shows whether the engine display was built, its last error, what Lua itself can read of the buff, whether
-  the warning is on, the REFRESH slot (limits, built or not, any problem the client reported), and whether the voice clip is
-  registered with the engine and currently muted.
+  the warning is on, the REFRESH slot (limits, built or not, any problem the client reported), and for the voice: whether
+  each engine sound is registered, whether Ossuary is talented, the state of the time clock and the casts it has learned.
 
 ### 6. Enrage panel
 Druid only. A small panel that appears while an enemy carries an enrage you can Soothe and lists those mobs, the one

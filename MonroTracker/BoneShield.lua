@@ -14,8 +14,8 @@ local ADDON_NAME, ns = ...
 --
 -- The preventive "REFRESH" message (little time left, or few stacks) is a second engine slot on the same buff. Its two texts
 -- go through number formatters whose breakpoints print the message below a limit and nothing from the limit on, so the
--- comparison with the hidden time and the hidden stack count is made by the engine. There is no voice for it: the engine
--- only plays a sound when a buff is added, gains stacks or is removed.
+-- comparison with the hidden time and the hidden stack count is made by the engine. The voice for the same moments is in
+-- Reminders.lua and works differently: the engine only plays a sound when a buff is added, gains stacks or is removed.
 local BONE_SHIELD = 195181
 local LOW_TEXT = "REFRESH"
 local WARNING_MARK = "Interface\\DialogFrame\\UI-Dialog-Icon-AlertNew" -- the yellow "!" triangle of the game's alert popups
@@ -41,6 +41,8 @@ local function IsBlood()
 	local getSpec = C_SpecializationInfo and C_SpecializationInfo.GetSpecialization or GetSpecialization
 	return (getSpec and getSpec() == 1) or (IsPlayerSpell ~= nil and IsPlayerSpell(MARROWREND)) or false
 end
+
+ns.IsBlood = IsBlood -- also asked by the voice in Reminders.lua
 
 local function IconTexture()
 	return C_Spell.GetSpellTexture(BONE_SHIELD) or FALLBACK_ICON

@@ -86,7 +86,8 @@ ns.defaults = {
 	bsLowWarn = true, -- in combat, "REFRESH" above the icon while the time or the stacks are low (compared by the engine)
 	bsCombatOnly = false,
 	bsWarnMissing = true, -- in combat with no Bone Shield: a red pulsing warning icon in the tracker's place
-	bsVoice = true, -- says "Bone Shield" when the buff drops in combat (an engine aura sound; Lua cannot see the buff there)
+	bsVoice = true, -- says "Refresh Bone Shield" in combat when the buff drops, falls under 5 stacks (Ossuary) or is under bsLowSeconds
+	bsRefreshSpells = {}, -- spellID -> true/false: casts seen to refresh Bone Shield or not, for the voice's own clock
 	bsX = 0,
 	bsY = -170,
 

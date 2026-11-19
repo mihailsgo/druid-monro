@@ -1,7 +1,8 @@
 local ADDON_NAME, ns = ...
 
 -- Voice reminders: says "Trinket ready" / "Heart of the Wild ready" when the cooldown comes back, "Apex" when
--- Wild Guardian procs, "Weapon" when Dancing Rune Weapon comes up and "Bone Shield" when Bone Shield drops in combat.
+-- Wild Guardian procs, "Weapon" when Dancing Rune Weapon comes up and "Refresh Bone Shield" when Bone Shield drops, falls
+-- under 5 stacks or is about to run out in combat.
 
 local HEART_OF_THE_WILD_IDS = {
 	1261867, -- Midnight
@@ -206,7 +207,7 @@ function ns.TrinketCooling()
 	end
 end
 
--- Aura callouts: "Apex" (Druid), "Weapon" and "Bone Shield" (Blood Death Knight) -------------------------------
+-- Aura callouts: "Apex" (Druid), "Weapon" and "Refresh Bone Shield" (Blood Death Knight) -----------------------
 
 -- Since 12.1 addons cannot see auras appear, but the engine can play a sound file when a given aura lands on a unit.
 -- So each callout is a baked clip (Zira voice) the engine plays itself; the text-to-speech path below is only the
@@ -242,10 +243,9 @@ local procs = {
 	},
 	{
 		-- Bone Shield falling off. In combat Lua cannot see the buff at all (not its stacks, its time left, or even that it
-		-- is there), so nothing can be estimated or spoken from Lua; the engine's "removed" trigger is the only signal, and
-		-- it is exact. No text-to-speech fallback for the same reason. The clip is muted out of combat, where the buff just
-		-- runs out half a minute after a fight.
-		text = "Bone Shield",
+		-- is there); the engine's "removed" trigger is exact. No text-to-speech fallback for the same reason. The clip is
+		-- muted out of combat, where the buff just runs out half a minute after a fight.
+		text = "Refresh Bone Shield",
 		file = ns.BONE_SOUND,
 		buff = 195181,
 		casts = {},
@@ -255,8 +255,24 @@ local procs = {
 			return ns.IsDeathKnight() and ns.db.bsEnabled and ns.db.bsVoice
 		end,
 	},
+	{
+		-- Bone Shield falling under 5 stacks. The stack count is hidden too, but the Ossuary talent keeps a buff of its own on
+		-- you for exactly as long as you have 5 or more stacks, so that buff being removed is the moment. The limit is the
+		-- talent's, not the slider's; the slider at 0 switches this off with the rest of the low-stacks warning.
+		text = "Refresh Bone Shield",
+		file = ns.BONE_SOUND,
+		buff = 219788, -- Ossuary, the buff (219786 is the talent)
+		casts = {},
+		trigger = "Removed",
+		combatOnly = true,
+		enabled = function()
+			local db = ns.db
+			return ns.IsDeathKnight() and db.bsEnabled and db.bsVoice and db.bsLowStacks > 0
+		end,
+	},
 }
-local boneProc = procs[#procs]
+local boneProc, ossuaryProc = procs[#procs - 1], procs[#procs]
+local OSSUARY_TALENT = 219786
 
 local function ProcName(p)
 	return C_Spell.GetSpellName(p.buff) or p.text
@@ -307,18 +323,24 @@ end
 
 -- A `combatOnly` clip is muted while out of combat: the engine sound cannot be registered once a dungeon fight has begun,
 -- so it stays registered and only its file is silenced. Mutes outlive a /reload, so the state is always set, never assumed.
+local mutedFiles, testingFiles = {}, {}
+
 local function SyncMutes()
 	if not (MuteSoundFile and UnmuteSoundFile) then
 		return
 	end
+	-- Per file, not per callout: several callouts can share a clip.
 	local inCombat = ns.InCombat()
+	local want = {}
 	for _, p in ipairs(procs) do
 		if p.combatOnly then
-			local mute = (p.enabled() and not inCombat and not p.testing) and true or false
-			if mute ~= p.muted then
-				pcall(mute and MuteSoundFile or UnmuteSoundFile, p.file)
-				p.muted = mute
-			end
+			want[p.file] = want[p.file] or (p.enabled() and not inCombat and not testingFiles[p.file]) and true or false
+		end
+	end
+	for file, mute in pairs(want) do
+		if mute ~= mutedFiles[file] then
+			pcall(mute and MuteSoundFile or UnmuteSoundFile, file)
+			mutedFiles[file] = mute
 		end
 	end
 end
@@ -362,23 +384,168 @@ end
 
 -- The Test button: a muted clip would stay silent, so it is let through for the length of the clip.
 function ns.TestBoneSound()
-	boneProc.testing = true
+	testingFiles[ns.BONE_SOUND] = true
 	SyncMutes()
 	PlaySoundFile(ns.BONE_SOUND, "Master")
 	C_Timer.After(2, function()
-		boneProc.testing = nil
+		testingFiles[ns.BONE_SOUND] = nil
 		SyncMutes()
 	end)
 end
 
--- For /mtr bonedebug.
+-- Bone Shield about to run out: a clock of our own ------------------------------------------------------------
+
+-- The time left is hidden in combat and the engine plays no sound for "little time left", so this one cue is worked out
+-- rather than observed: Bone Shield lasts 30 seconds from the last time it gained stacks, and the casts that give stacks
+-- are your own, which the client does report. Whenever the buff can be read (out of combat, unrestricted content) the
+-- clock is set from the real expiry instead, so it is exact going into a pull.
+local BONE_SHIELD = 195181
+local BONE_DURATION = 30
+local BONE_CERTAIN = { [195182] = true, [195292] = true } -- Marrowrend, Death's Caress: always give stacks
+-- Give stacks with the usual talents: Dancing Rune Weapon, Reaper's Mark, Gorefiend's Grasp, Death Grip. Each is checked
+-- against the real buff whenever that can be read and is dropped after three casts that did not move it; any other spell
+-- that does move it is learned the same way (db.bsRefreshSpells: true = refreshes, false = does not).
+local BONE_ASSUMED = { [49028] = true, [439843] = true, [108199] = true, [49576] = true }
+local BONE_LEARN_JUMP = 1 -- seconds the expiry must move for a cast to count as a refresh
+local BONE_UNLEARN_AFTER = 3
+
+local boneExpire = 0 -- GetTime() at which the buff runs out; 0 = no clock running
+local boneExact = false -- last set from the real buff (true) or from a cast (false)
+local boneArmed = false -- one callout per window; a refresh arms it again
+local boneMisses = {}
+local boneSaidAt
+
+-- The real expiry, or nil when there is no Bone Shield or the client hides it.
+local function ReadBoneExpire()
+	local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, BONE_SHIELD)
+	if not ok or not aura then
+		return nil
+	end
+	local exp = aura.expirationTime
+	if exp == nil or IsSecret(exp) or type(exp) ~= "number" or exp <= 0 then
+		return nil
+	end
+	return exp
+end
+
+local function BoneClockOn()
+	local db = ns.db
+	return db.bsEnabled and db.bsVoice and db.bsLowSeconds > 0 and ns.IsBlood ~= nil and ns.IsBlood() and true or false
+end
+
+local function IsBoneRefresher(spellID)
+	if BONE_CERTAIN[spellID] then
+		return true
+	end
+	local learned = ns.db.bsRefreshSpells[spellID]
+	if learned ~= nil then
+		return learned
+	end
+	if BONE_ASSUMED[spellID] then
+		return true
+	end
+	-- An empowered or replaced version of a certain spell keeps its name.
+	local name = C_Spell.GetSpellName(spellID)
+	if name ~= nil and not IsSecret(name) then
+		for id in pairs(BONE_CERTAIN) do
+			if name == C_Spell.GetSpellName(id) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function CheckBoneClock()
+	if not BoneClockOn() then
+		boneExpire, boneArmed = 0, false
+		return
+	end
+	local now = GetTime()
+	local exp = ReadBoneExpire()
+	if exp then
+		boneExpire, boneExact = exp, true
+	elseif not ns.InCombat() then
+		boneExpire = 0 -- readable out of combat, so "nothing found" means there is none
+	end
+	local left = boneExpire - now
+	if left <= 0 then
+		boneExpire, boneArmed = 0, false
+		return
+	end
+	local limit = ns.db.bsLowSeconds
+	if left > limit + 0.5 then
+		boneArmed = true
+	elseif boneArmed and left < limit and ns.InCombat() then
+		-- Also right at the pull, when the buff was already this short going in.
+		boneArmed = false
+		boneSaidAt = now
+		PlaySoundFile(ns.BONE_SOUND, "Master")
+	end
+end
+
+local function BoneOnCast(spellID)
+	if not BoneClockOn() then
+		return
+	end
+	local now = GetTime()
+	local before = ReadBoneExpire()
+	local refresher = IsBoneRefresher(spellID)
+	if refresher then
+		boneExpire, boneExact, boneArmed = now + BONE_DURATION, false, true
+	end
+	if BONE_CERTAIN[spellID] or not before then
+		return
+	end
+	-- The buff is readable right now: see whether this cast really moved it. A cast made while the buff was nearly full
+	-- cannot show a jump, so it proves nothing either way.
+	C_Timer.After(0, function()
+		local after = ReadBoneExpire()
+		if not after then
+			return
+		end
+		local known = ns.db.bsRefreshSpells
+		if after - before > BONE_LEARN_JUMP then
+			known[spellID] = true
+			boneMisses[spellID] = nil
+		elseif refresher and before - now < BONE_DURATION - 2 * BONE_LEARN_JUMP then
+			local n = (boneMisses[spellID] or 0) + 1
+			if n >= BONE_UNLEARN_AFTER then
+				known[spellID] = false
+				boneMisses[spellID] = nil
+			else
+				boneMisses[spellID] = n
+			end
+		end
+	end)
+end
+
+-- For /mtr bonedebug: one line per cue.
 function ns.BoneVoiceStatus()
-	local p = boneProc
 	local api = HasAuraSoundAPI()
-	return ("voice on drop: %s; aura sound API: %s; \"removed\" trigger: %s; engine sound: %s%s; clip: %s"):format(
-		p.enabled() and "on" or "off", tostring(api), tostring(api and ProcTrigger(p) ~= nil),
-		p.handle and "registered" or "NOT registered", p.error and (" (" .. p.error .. ")") or "",
-		p.muted and "muted (out of combat)" or "audible")
+	local function sound(p)
+		return ("%s; engine sound %s%s"):format(p.enabled() and "on" or "off", p.handle and "registered" or "NOT registered",
+			p.error and (" (" .. p.error .. ")") or "")
+	end
+	local now = GetTime()
+	local clock = "not running"
+	if boneExpire > now then
+		clock = ("%.1f s left by %s; %s"):format(boneExpire - now, boneExact and "the real buff" or "your last refreshing cast",
+			boneArmed and "armed" or "already said for this window")
+	end
+	local learned = {}
+	for id, refreshes in pairs(ns.db.bsRefreshSpells) do
+		learned[#learned + 1] = ("%d %s"):format(id, refreshes and "refreshes" or "does not")
+	end
+	return table.concat({
+		("voice, aura sound API: %s; \"removed\" trigger: %s; clip: %s"):format(tostring(api),
+			tostring(api and ProcTrigger(boneProc) ~= nil), mutedFiles[ns.BONE_SOUND] and "muted (out of combat)" or "audible"),
+		"  voice when it drops: " .. sound(boneProc),
+		("  voice under 5 stacks (Ossuary buff removed): %s; Ossuary talent known: %s"):format(sound(ossuaryProc),
+			tostring(IsPlayerSpell ~= nil and IsPlayerSpell(OSSUARY_TALENT) or false)),
+		("  voice under %d s (own clock): %s; %s; learned casts: %s"):format(ns.db.bsLowSeconds, BoneClockOn() and "on" or "off",
+			clock, #learned > 0 and table.concat(learned, ", ") or "none"),
+	}, "\n")
 end
 
 local function AnnounceProc(p)
@@ -409,12 +576,14 @@ local function CheckAll()
 		Check(w)
 	end
 	CheckProcs()
+	CheckBoneClock()
 end
 
 local function OnCast(spellID)
 	if not spellID or IsSecret(spellID) then
 		return
 	end
+	BoneOnCast(spellID)
 	-- A new spirit while one is already out only refreshes the buff, so the cast is what catches it.
 	for _, p in ipairs(procs) do
 		if not p.trigger and p.enabled() and IsProcSpell(p, spellID) then

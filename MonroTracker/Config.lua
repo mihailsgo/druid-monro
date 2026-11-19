@@ -1196,7 +1196,7 @@ local function BuildBoneShieldPage()
 		ns.db.bsLowWarn = v
 	end)
 
-	widgets.bsVoice = Checkbox(c, "Say \"Bone Shield\" if lost", 300, -180, function()
+	widgets.bsVoice = Checkbox(c, "Say \"Refresh Bone Shield\"", 300, -180, function()
 		return ns.db.bsVoice
 	end, function(v)
 		ns.db.bsVoice = v
@@ -1206,7 +1206,7 @@ local function BuildBoneShieldPage()
 	end)
 	voiceTest:SetPoint("TOPLEFT", 304, -214)
 
-	local hint = Label(c, "Low = under either limit: the timer turns red and, in combat, REFRESH shows above the icon. With no Bone Shield in combat the icon becomes a red warning. Fonts, limits and the first three checkboxes are built into the display: a change shows a moment after you stop.",
+	local hint = Label(c, "Low = under either limit: red timer and, in combat, REFRESH above the icon. The voice speaks in combat when the buff drops, falls under 5 stacks (needs the Ossuary talent) or is under the time limit (timed from your casts). Fonts, limits and the first three checkboxes show a moment after you stop.",
 		0, -338, "GameFontHighlightSmall")
 	hint:SetPoint("TOPRIGHT", 0, -338)
 	hint:SetJustifyH("LEFT")
