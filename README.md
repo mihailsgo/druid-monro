@@ -128,11 +128,18 @@ is being built; the button is closed to addon code afterwards.
   now" limits. Under the time limit the timer turns red (a colour curve the engine evaluates against the hidden remaining
   time).
 - **"REFRESH" if low in combat** (on by default) - the preventive warning: while you are in combat and Bone Shield has less
-  time left than the time limit **or** fewer stacks than the stack limit, a red **REFRESH** shows above the icon. Lua cannot
+  time left than the time limit **or** fewer stacks than the stack limit, a red **REFRESH** shows by the icon. Lua cannot
   see either number in combat, so this is a second engine slot on the same buff with two texts, one bound to the remaining
   time and one to the stack count. Each goes through a number formatter whose breakpoints print "REFRESH" below the limit and
   nothing from the limit on, so the engine makes the comparison. Our code only fades the slot out while you are out of
-  combat. The message scales with the icon size.
+  combat.
+- **REFRESH position**, **REFRESH font** and **REFRESH font size** (default: above the icon, Friz Quadrata, 22). The
+  position is above, below, left or right of the icon, where the message moves with the icon, or **Own place**: a spot of
+  its own anywhere on the screen. Dragging the message while unlocked picks Own place by itself; choosing a side again puts
+  it back, and the own place is remembered. The engine's two texts are pinned to the middle of a frame of ours, so moving
+  the message needs no rebuild; the font and its size are baked in like the tracker's fonts. The font list is the built-in
+  fonts plus anything LibSharedMedia offers. Saved settings from before this existed keep the size the message was shown
+  at (it used to scale with the icon).
 - **Show stack count**, **Show time left**, **Cooldown swipe on the icon** and **Only show in combat**. Out of combat nothing
   is shown while Bone Shield is down (no faded icon).
 - **Warn if missing in combat** (on by default) - while you are in combat without Bone Shield, the icon's place shows a red,
@@ -163,11 +170,12 @@ is being built; the button is closed to addon code afterwards.
   a fresh display half a second after you stop moving the slider; already-built displays are reused. Size and position
   apply at once.
 - **Location** - drag it. Unlocking, or having the settings window open, shows a sample (8 stacks, 12.3s, and REFRESH when
-  that is on) instead.
+  that is on) instead. While unlocked the REFRESH sample is a handle of its own: drag it to give the message its own place.
 - The stack number itself is not coloured when low; the REFRESH message is the low-stacks signal.
 - `/mtr bonedebug` shows whether the engine display was built, its last error, what Lua itself can read of the buff, whether
-  the warning is on, the REFRESH slot (limits, built or not, any problem the client reported), and for the voice: whether
-  each engine sound is registered, whether Ossuary is talented, the state of the time clock and the casts it has learned.
+  the warning is on, the REFRESH slot (limits, built or not, any problem the client reported), its place and font, and
+  for the voice: whether each engine sound is registered, whether Ossuary is talented, the state of the time clock and
+  the casts it has learned.
 
 ### 6. Enrage panel
 Druid only. A small panel that appears while an enemy carries an enrage you can Soothe and lists those mobs, the one

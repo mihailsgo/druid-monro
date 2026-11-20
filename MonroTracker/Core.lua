@@ -83,7 +83,10 @@ ns.defaults = {
 	bsTimerDecimals = 5, -- show tenths of a second below this many seconds; 0 = whole seconds only
 	bsLowSeconds = 5, -- low time: the timer turns red and "REFRESH" shows below this many seconds left; 0 = never
 	bsLowStacks = 5, -- low stacks: "REFRESH" shows below this many stacks; 0 = never
-	bsLowWarn = true, -- in combat, "REFRESH" above the icon while the time or the stacks are low (compared by the engine)
+	bsLowWarn = true, -- in combat, the "REFRESH" message while the time or the stacks are low (compared by the engine)
+	bsLowPlace = "above", -- the message's place: above | below | left | right of the icon, or free = its own spot on the screen (bsLowX / bsLowY, set by dragging it)
+	bsLowFont = ns.DEFAULT_FONT, -- the message's font file
+	bsLowFontSize = 22,
 	bsCombatOnly = false,
 	bsWarnMissing = true, -- in combat with no Bone Shield: a red pulsing warning icon in the tracker's place
 	bsVoice = true, -- says "Refresh Bone Shield" in combat when the buff drops, falls under 5 stacks (Ossuary) or is under bsLowSeconds
@@ -177,6 +180,10 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1)
 		end
 		for _, k in ipairs({ "moonCountEnabled", "moonCountSize", "moonCountFontSize", "moonCountColor", "moonCountX", "moonCountY" }) do
 			old[k] = nil
+		end
+		-- The Bone Shield "REFRESH" message used to scale with the icon; its size is now a setting, starting from what was shown.
+		if old.bsLowFontSize == nil and type(old.bsSize) == "number" then
+			old.bsLowFontSize = math.max(12, math.floor(old.bsSize * 0.34 + 0.5))
 		end
 		ApplyDefaults(MonroTrackerDB, ns.defaults)
 		ns.db = MonroTrackerDB

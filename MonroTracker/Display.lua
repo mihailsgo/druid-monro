@@ -48,8 +48,8 @@ local function DefaultStore()
 end
 
 -- Makes `f` draggable while ns.unlocked, saving its offset from the screen center
--- into store()[xKey] / store()[yKey]. `store` defaults to the saved-variables table.
-function ns.MakeDraggable(f, xKey, yKey, store)
+-- into store()[xKey] / store()[yKey]. `store` defaults to the saved-variables table. `onMoved` (optional) runs after a drag.
+function ns.MakeDraggable(f, xKey, yKey, store, onMoved)
 	store = store or DefaultStore
 	f:SetMovable(true)
 	f:SetClampedToScreen(true)
@@ -71,6 +71,9 @@ function ns.MakeDraggable(f, xKey, yKey, store)
 		t[yKey] = math.floor(cy - uy + 0.5)
 		self:ClearAllPoints()
 		self:SetPoint("CENTER", UIParent, "CENTER", t[xKey], t[yKey])
+		if onMoved then
+			onMoved()
+		end
 	end)
 end
 

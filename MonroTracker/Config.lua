@@ -1120,7 +1120,7 @@ local function BuildBoneShieldPage()
 	end)
 	p:SetPoint("TOPLEFT", 0, PAGE_TOP)
 	p:SetPoint("TOPRIGHT", 0, PAGE_TOP)
-	p:SetHeight(444)
+	p:SetHeight(488)
 	widgets.bsEnabled = p.toggle
 	local c = p.content
 
@@ -1130,34 +1130,40 @@ local function BuildBoneShieldPage()
 		ns.db.bsSize = v
 	end)
 
-	widgets.bsStackFontSize = Slider(c, "Stack font size", 0, -56, 8, 96, 1, function()
+	widgets.bsStackFontSize = Slider(c, "Stack font size", 0, -52, 8, 96, 1, function()
 		return ns.db.bsStackFontSize
 	end, function(v)
 		ns.db.bsStackFontSize = v
 	end)
 
-	widgets.bsTimerFontSize = Slider(c, "Time font size", 0, -112, 8, 96, 1, function()
+	widgets.bsTimerFontSize = Slider(c, "Time font size", 0, -104, 8, 96, 1, function()
 		return ns.db.bsTimerFontSize
 	end, function(v)
 		ns.db.bsTimerFontSize = v
 	end)
 
-	widgets.bsTimerDecimals = Slider(c, "Tenths of a second below (0 = whole seconds)", 0, -168, 0, 10, 1, function()
+	widgets.bsTimerDecimals = Slider(c, "Tenths of a second below (0 = whole seconds)", 0, -156, 0, 10, 1, function()
 		return ns.db.bsTimerDecimals
 	end, function(v)
 		ns.db.bsTimerDecimals = v
 	end)
 
-	widgets.bsLowSeconds = Slider(c, "Low time below, seconds (0 = never)", 0, -224, 0, 30, 1, function()
+	widgets.bsLowSeconds = Slider(c, "Low time below, seconds (0 = never)", 0, -208, 0, 30, 1, function()
 		return ns.db.bsLowSeconds
 	end, function(v)
 		ns.db.bsLowSeconds = v
 	end)
 
-	widgets.bsLowStacks = Slider(c, "Low stacks below (0 = never)", 0, -280, 0, 12, 1, function()
+	widgets.bsLowStacks = Slider(c, "Low stacks below (0 = never)", 0, -260, 0, 12, 1, function()
 		return ns.db.bsLowStacks
 	end, function(v)
 		ns.db.bsLowStacks = v
+	end)
+
+	widgets.bsLowFontSize = Slider(c, "REFRESH font size", 0, -312, 8, 96, 1, function()
+		return ns.db.bsLowFontSize
+	end, function(v)
+		ns.db.bsLowFontSize = v
 	end)
 
 	widgets.bsShowStacks = Checkbox(c, "Show stack count", 300, 0, function()
@@ -1206,9 +1212,26 @@ local function BuildBoneShieldPage()
 	end)
 	voiceTest:SetPoint("TOPLEFT", 304, -214)
 
-	local hint = Label(c, "Low = under either limit: red timer and, in combat, REFRESH above the icon. The voice speaks in combat when the buff drops, falls under 5 stacks (needs the Ossuary talent) or is under the time limit (timed from your casts). Fonts, limits and the first three checkboxes show a moment after you stop.",
-		0, -338, "GameFontHighlightSmall")
-	hint:SetPoint("TOPRIGHT", 0, -338)
+	-- Where the message sits; dragging it while unlocked picks "Own place" by itself.
+	Label(c, "REFRESH position", 300, -252)
+	widgets.bsLowPlace = Dropdown(c, 300, -270, 190, function()
+		return ns.BONE_LOW_PLACES
+	end, function(item)
+		return ns.db.bsLowPlace == item.key
+	end, function(item)
+		ns.db.bsLowPlace = item.key
+	end)
+
+	Label(c, "REFRESH font", 300, -306)
+	widgets.bsLowFont = Dropdown(c, 300, -324, 190, GetFonts, function(item)
+		return ns.db.bsLowFont == item.path
+	end, function(item)
+		ns.db.bsLowFont = item.path
+	end)
+
+	local hint = Label(c, "Low = under either limit: red timer and, in combat, the REFRESH message (unlock to drag it anywhere). The voice speaks in combat when the buff drops, falls under 5 stacks (needs the Ossuary talent) or is under the time limit (timed from your casts). Fonts, limits and the first three checkboxes show a moment after you stop.",
+		0, -368, "GameFontHighlightSmall")
+	hint:SetPoint("TOPRIGHT", 0, -368)
 	hint:SetJustifyH("LEFT")
 end
 

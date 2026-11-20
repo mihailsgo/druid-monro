@@ -16,8 +16,22 @@ local ADDON_NAME, ns = ...
 -- go through number formatters whose breakpoints print the message below a limit and nothing from the limit on, so the
 -- comparison with the hidden time and the hidden stack count is made by the engine. The voice for the same moments is in
 -- Reminders.lua and works differently: the engine only plays a sound when a buff is added, gains stacks or is removed.
+--
+-- Where the message sits is ours again: the engine's texts are pinned, while their button is being built, to the centre of
+-- a frame of our own (`lowAnchor`), which stays free to be placed beside the icon or dragged anywhere at any time. Only the
+-- font is baked in, like the tracker's fonts.
 local BONE_SHIELD = 195181
 local LOW_TEXT = "REFRESH"
+local LOW_FLAGS = "THICKOUTLINE"
+-- Places for the message (db.bsLowPlace), in the order the settings list them. "free" is a spot of its own on the screen
+-- (db.bsLowX / bsLowY), which dragging the message while unlocked selects.
+ns.BONE_LOW_PLACES = {
+	{ key = "above", name = "Above the icon" },
+	{ key = "below", name = "Below the icon" },
+	{ key = "left", name = "Left of the icon" },
+	{ key = "right", name = "Right of the icon" },
+	{ key = "free", name = "Own place (unlock, drag)" },
+}
 local WARNING_MARK = "Interface\\DialogFrame\\UI-Dialog-Icon-AlertNew" -- the yellow "!" triangle of the game's alert popups
 local MARROWREND = 195182 -- Blood-only, so knowing it means Blood spec
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
@@ -25,7 +39,7 @@ local REBUILD_DELAY = 0.5 -- seconds a changed style must stay put before the di
 
 local frame, unlockBg, preview, previewIcon, previewStack, previewTimer
 local warning, warningIcon, warningMark
-local lowHolder, previewLow
+local lowHolder, lowAnchor, lowBg, previewLow
 local lowActive -- { container, button, signature, note } of the live "REFRESH" slot
 local lowBuilt = {} -- signature -> entry, as `built`
 local lowPending, lowFailed, lowError
@@ -271,14 +285,17 @@ local function LowWanted()
 	return db.bsLowWarn and (db.bsLowSeconds > 0 or db.bsLowStacks > 0) and true or false
 end
 
--- The message scales with the icon.
-local function LowFontSize()
-	return math.max(12, math.floor(ns.db.bsSize * 0.34 + 0.5))
-end
-
+-- The limits and the font are baked into the slot; the place is not (see PlaceLow).
 local function LowSignature()
 	local db = ns.db
-	return table.concat({ db.bsLowSeconds, db.bsLowStacks, LowFontSize() }, "|")
+	return table.concat({ db.bsLowSeconds, db.bsLowStacks, db.bsLowFont, db.bsLowFontSize }, "|")
+end
+
+-- A font file that is gone (an addon that shipped it was removed) falls back to the default one.
+local function SetLowFont(fontString, font, size)
+	if not fontString:SetFont(font, size, LOW_FLAGS) then
+		fontString:SetFont(ns.DEFAULT_FONT, size, LOW_FLAGS)
+	end
 end
 
 -- Prints LOW_TEXT while the number is under `limit` and nothing from `limit` on. Nil when there is no limit, or when the
@@ -292,7 +309,8 @@ local function LowFormatter(limit)
 	return ok and f or nil
 end
 
--- Runs once, in the engine's creation window. Both texts sit on the same spot and say the same, so either limit shows it.
+-- Runs once, in the engine's creation window. Both texts sit on the same spot (the middle of `lowAnchor`, wherever that is
+-- moved to later) and say the same, so either limit shows it.
 local function InitLowButton(entry, button, style)
 	entry.button = button
 	button:SetAllPoints(frame)
@@ -304,9 +322,9 @@ local function InitLowButton(entry, button, style)
 	carrier:EnableMouse(false)
 	local function Text()
 		local fs = carrier:CreateFontString(nil, "OVERLAY")
-		fs:SetFont(ns.DEFAULT_FONT, style.fontSize, "THICKOUTLINE") -- before the engine writes into it
+		SetLowFont(fs, style.font, style.fontSize) -- before the engine writes into it
 		fs:SetTextColor(1, 0.15, 0.15)
-		fs:SetPoint("BOTTOM", button, "TOP", 0, 4)
+		fs:SetPoint("CENTER", lowAnchor, "CENTER", 0, 0)
 		return fs
 	end
 
@@ -354,7 +372,8 @@ local function BuildLow(signature)
 	end
 	local db = ns.db
 	local style = {
-		fontSize = LowFontSize(),
+		font = db.bsLowFont,
+		fontSize = db.bsLowFontSize,
 		stacksFormatter = LowFormatter(db.bsLowStacks),
 		timeFormatter = LowFormatter(db.bsLowSeconds),
 	}
@@ -434,10 +453,42 @@ local function ApplyLow(inCombat, previewing)
 	end
 end
 
-local function StylePreview()
+-- Sizes the message's frame to the sample text (ours, so it can be measured; the engine's text cannot) and puts it in its
+-- place. Needs no rebuild: the engine's texts follow the frame.
+local function PlaceLow()
 	local db = ns.db
-	previewLow:SetFont(ns.DEFAULT_FONT, LowFontSize(), "THICKOUTLINE")
-	previewLow:SetShown(LowWanted())
+	local width, height = math.max(previewLow:GetStringWidth(), 20), math.max(previewLow:GetStringHeight(), 10)
+	local place = db.bsLowPlace
+	if place == "free" and not (db.bsLowX and db.bsLowY) then
+		-- On its own for the first time: it starts where it is now (above the icon, if it was never placed).
+		local cx, cy = lowAnchor:GetCenter()
+		local ux, uy = UIParent:GetCenter()
+		if cx and ux then
+			db.bsLowX, db.bsLowY = math.floor(cx - ux + 0.5), math.floor(cy - uy + 0.5)
+		else
+			db.bsLowX, db.bsLowY = db.bsX, math.floor(db.bsY + db.bsSize / 2 + 4 + height / 2 + 0.5)
+		end
+	end
+	lowAnchor:SetSize(width, height)
+	lowAnchor:ClearAllPoints()
+	if place == "free" then
+		lowAnchor:SetPoint("CENTER", UIParent, "CENTER", db.bsLowX, db.bsLowY)
+	elseif place == "below" then
+		-- clear of the stack count, which hangs under the icon
+		lowAnchor:SetPoint("TOP", frame, "BOTTOM", 0, -(db.bsShowStacks and db.bsStackFontSize + 6 or 4))
+	elseif place == "left" then
+		lowAnchor:SetPoint("RIGHT", frame, "LEFT", -6, 0)
+	elseif place == "right" then
+		lowAnchor:SetPoint("LEFT", frame, "RIGHT", 6, 0)
+	else
+		lowAnchor:SetPoint("BOTTOM", frame, "TOP", 0, 4)
+	end
+end
+
+local function StylePreview(previewing)
+	local db = ns.db
+	SetLowFont(previewLow, db.bsLowFont, db.bsLowFontSize)
+	previewLow:SetShown(previewing and LowWanted())
 	previewIcon:SetTexture(IconTexture())
 	previewStack:SetFont(ns.DEFAULT_FONT, db.bsStackFontSize, "OUTLINE")
 	previewStack:SetShown(db.bsShowStacks)
@@ -464,7 +515,12 @@ function ns.ApplyBoneShield()
 		return
 	end
 
-	StylePreview()
+	StylePreview(previewing)
+	PlaceLow()
+	-- While unlocked the message is a handle of its own; dragging it gives it a place of its own.
+	local handle = ns.unlocked and LowWanted()
+	lowAnchor:EnableMouse(handle)
+	lowBg:SetShown(handle)
 	preview:SetShown(previewing)
 	if active and active.container then
 		active.container:SetShown(not previewing)
@@ -509,6 +565,9 @@ function ns.BoneShieldDebug()
 		LOW_TEXT, db.bsLowWarn and "on" or "off", db.bsLowSeconds, db.bsLowStacks, lowActive and "live" or "NOT built",
 		lowActive and lowActive.signature or "-", tostring(lowActive and lowActive.button ~= nil or false),
 		tostring(lowHolder and lowHolder:GetAlpha() == 1 or false), tostring((lowActive and lowActive.note) or lowError)))
+	print(("  \"%s\" message place: %s%s; font: %s, size %s"):format(LOW_TEXT, tostring(db.bsLowPlace),
+		db.bsLowPlace == "free" and (" (%s, %s from the middle of the screen)"):format(tostring(db.bsLowX), tostring(db.bsLowY)) or "",
+		tostring(db.bsLowFont), tostring(db.bsLowFontSize)))
 	if ns.BoneVoiceStatus then
 		print("  " .. ns.BoneVoiceStatus())
 	end
@@ -593,16 +652,34 @@ function ns.InitBoneShield()
 	lowHolder:SetFrameLevel(frame:GetFrameLevel() + 8)
 	lowHolder:SetAlpha(0)
 
+	-- The message's place. The engine's texts are pinned to the middle of this frame; it also carries the sample text and,
+	-- while unlocked, is the handle the message is dragged by.
+	lowAnchor = CreateFrame("Frame", "MonroTrackerBoneShieldMessage", frame)
+	lowAnchor:SetFrameLevel(frame:GetFrameLevel() + 9)
+	lowAnchor:SetSize(100, 22)
+	lowAnchor:SetPoint("BOTTOM", frame, "TOP", 0, 4)
+	ns.MakeDraggable(lowAnchor, "bsLowX", "bsLowY", nil, function()
+		ns.db.bsLowPlace = "free"
+		if ns.RefreshConfig then
+			ns.RefreshConfig()
+		end
+	end)
+	lowBg = lowAnchor:CreateTexture(nil, "BACKGROUND")
+	lowBg:SetAllPoints()
+	lowBg:SetColorTexture(0.1, 0.8, 0.3, 0.35)
+	lowBg:Hide()
+	previewLow = lowAnchor:CreateFontString(nil, "OVERLAY")
+	previewLow:SetFont(ns.DEFAULT_FONT, 22, LOW_FLAGS)
+	previewLow:SetTextColor(1, 0.15, 0.15)
+	previewLow:SetPoint("CENTER")
+	previewLow:SetText(LOW_TEXT)
+	previewLow:Hide()
+
 	-- Sample shown while positioning or styling; the engine only draws while the buff is on you.
 	preview = CreateFrame("Frame", nil, frame)
 	preview:SetAllPoints()
 	preview:SetFrameLevel(frame:GetFrameLevel() + 6)
 	preview:Hide()
-	previewLow = preview:CreateFontString(nil, "OVERLAY")
-	previewLow:SetFont(ns.DEFAULT_FONT, 22, "THICKOUTLINE")
-	previewLow:SetTextColor(1, 0.15, 0.15)
-	previewLow:SetPoint("BOTTOM", preview, "TOP", 0, 4)
-	previewLow:SetText(LOW_TEXT)
 	previewIcon = preview:CreateTexture(nil, "ARTWORK")
 	previewIcon:SetAllPoints()
 	previewIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
